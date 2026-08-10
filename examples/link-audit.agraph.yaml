@@ -1,0 +1,160 @@
+ags_version: "1.0"
+kind: AgenticGraph
+id: examples/link-audit
+title: Audit a documentation site for broken links
+version: 1.0.0
+requires_conformance: 1
+
+objective: >
+  Crawl a built documentation site, find every link that does not resolve, and produce a
+  triaged report a human or another graph can act on.
+
+description: >
+  This is a reusable child graph. It is referenced from
+  examples/docs-site-refresh.agraph.yaml via a `subgraph` node with a `ref`, which is how
+  AGS composes graphs across files. Its contract with callers is exactly its `params` in
+  and its `outputs` out; it reads nothing else from the parent.
+
+labels: [example, subgraph, reusable, docs]
+
+params:
+  site_root:
+    type: directory
+    description: Directory containing the built documentation site.
+    required: true
+  changed_pages:
+    type: array
+    description: Pages that changed in this cycle, checked first and reported separately.
+    required: false
+    default: []
+
+entrypoints: [crawl_links]
+
+nodes:
+
+  crawl_links:
+    type: task
+    title: Crawl every link in the site
+    description: >
+      Walk the built site and collect every internal and external link, together with the
+      page it appears on. Do not follow external links yet; only inventory them.
+    inputs:
+      root:
+        type: directory
+        description: The built site to crawl.
+        from: params.site_root
+    outputs:
+      links:
+        type: array
+        description: Every link found, as objects with url, source_page, and kind.
+        schema:
+          type: array
+          items:
+            type: object
+            required: [url, source_page, kind]
+            properties:
+              url: { type: string }
+              source_page: { type: string }
+              kind: { type: string, enum: [internal, external, anchor] }
+    intelligence:
+      tier: minimal
+      hints: [tool_use_heavy, low_cost]
+      rationale: Deterministic traversal and extraction.
+    requirements:
+      tools: [file_read, file_search, shell_exec]
+      permissions:
+        - fs:read:**
+        - shell:exec:python*
+      workspace: read_only
+    constraints:
+      max_agent_steps: 10
+      determinism: reproducible
+    success:
+      summary: A link inventory was produced.
+      criteria:
+        - id: links_found
+          kind: expression
+          description: At least one link was inventoried.
+          expr: len(self.outputs.links) > 0
+    estimate: { effort: s, cost_usd: 0.5 }
+
+  check_links:
+    type: task
+    title: Resolve every link and triage the failures
+    description: >
+      Resolve every inventoried link. Internal links resolve against the site tree,
+      anchors against the target page's headings, external links by HTTP HEAD with a
+      short timeout. Report each failure with its source page, the reason it failed, and
+      a suggested fix. Treat links on the changed pages as higher priority.
+    depends_on: [crawl_links]
+    inputs:
+      links:
+        type: array
+        description: The inventoried links.
+        from: nodes.crawl_links.outputs.links
+      priority_pages:
+        type: array
+        description: Pages changed this cycle, reported first.
+        from: params.changed_pages
+    outputs:
+      broken_links:
+        type: array
+        description: Links that failed to resolve, each with url, source_page, reason, suggestion.
+        schema:
+          type: array
+          items:
+            type: object
+            required: [url, source_page, reason]
+            properties:
+              url: { type: string }
+              source_page: { type: string }
+              reason: { type: string }
+              suggestion: { type: string }
+      audit_report:
+        type: markdown
+        description: Human-readable triage of the failures.
+        path_hint: docs/internal/link-audit.md
+    intelligence:
+      tier: standard
+      hints: [tool_use_heavy]
+    requirements:
+      tools: [file_read, http_fetch, file_write]
+      permissions:
+        - fs:read:**
+        - fs:write:docs/internal/**
+        - net:fetch:*
+      network: full
+      workspace: read_write
+    constraints:
+      max_agent_steps: 20
+      max_wall_clock_seconds: 1200
+    failure:
+      retry:
+        max_attempts: 2
+        backoff: exponential
+        retry_on: [transient, timeout]
+      on_exhausted: fail
+    success:
+      summary: A triaged link report exists.
+      criteria:
+        - id: report_written
+          kind: file_exists
+          description: The audit report was written.
+          path: docs/internal/link-audit.md
+          min_bytes: 200
+    estimate: { effort: m, cost_usd: 1.5 }
+
+outputs:
+  broken_links:
+    type: array
+    description: Links that failed to resolve.
+    from: nodes.check_links.outputs.broken_links
+  audit_report:
+    type: markdown
+    description: The triaged link report.
+    from: nodes.check_links.outputs.audit_report
+  link_inventory:
+    type: array
+    description: Every link found, for callers that want the full picture.
+    required: false
+    from: nodes.crawl_links.outputs.links

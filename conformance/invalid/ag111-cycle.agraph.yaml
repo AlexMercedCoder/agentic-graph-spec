@@ -1,0 +1,20 @@
+# EXPECT: AG111
+# The effective edge set must be acyclic. Iteration belongs in a loop node.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag111-cycle
+title: Cyclic graph
+objective: Demonstrate the acyclicity rule.
+entrypoints: [start]
+nodes:
+  start:
+    title: Start
+    description: Entry node.
+  a:
+    title: A
+    description: First half of the cycle.
+    depends_on: [start, b]
+  b:
+    title: B
+    description: Second half of the cycle.
+    depends_on: [a]

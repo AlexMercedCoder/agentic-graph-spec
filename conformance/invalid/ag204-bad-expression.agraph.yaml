@@ -1,0 +1,23 @@
+# EXPECT: AG204
+# Unknown function and malformed syntax are both AG204.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag204-bad-expression
+title: Broken expression
+objective: Demonstrate expression syntax validation.
+entrypoints: [start]
+nodes:
+  start:
+    title: Start
+    description: Entry node.
+    outputs:
+      value:
+        type: text
+        description: Something to test.
+    success:
+      summary: Never passes; the expression does not parse.
+      criteria:
+        - id: broken
+          kind: expression
+          description: Calls a function that does not exist in AGX.
+          expr: now() > 0 &&

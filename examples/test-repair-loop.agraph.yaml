@@ -1,0 +1,384 @@
+ags_version: "1.0"
+kind: AgenticGraph
+id: examples/test-repair-loop
+title: Repair a failing test suite, iteratively
+version: 1.0.0
+requires_conformance: 3
+
+objective: >
+  Take a repository whose test suite is failing and get it green again, using a bounded
+  diagnose-and-fix loop that stops as soon as the suite passes, and escalates to a human
+  if it cannot converge.
+
+description: >
+  This example exists to demonstrate iteration. The interesting part is the `repair_loop`
+  node: AGS graphs are acyclic, so repetition is expressed by a loop node that owns a body
+  fragment, with a hard `max_iterations` ceiling and an explicit exit condition. State
+  moves between iterations through `carry`, and out of the loop through `collect`.
+
+  Note the escalating intelligence tier: the first repair attempt runs at `advanced`, and
+  each retry within an iteration escalates to `frontier`, because a fix that failed once
+  is by definition not the obvious fix.
+
+labels: [example, loop, iteration, testing]
+
+params:
+  test_command:
+    type: string
+    description: Command that runs the project's test suite.
+    required: false
+    default: "pytest -q"
+
+context:
+  repair_rules: >
+    Never change a test to make it pass unless the test itself is provably wrong; say so
+    explicitly when you do. Prefer the smallest change that fixes the root cause. Never
+    add a skip, xfail, or retry decorator to get to green.
+
+constraints:
+  max_cost_usd: 15.0
+  max_wall_clock_seconds: 7200
+  max_parallel_nodes: 1
+  max_node_executions: 40
+
+policy:
+  on_expression_error: fail
+  on_node_failure: halt
+  checkpointing: per_node
+
+entrypoints: [establish_baseline]
+
+nodes:
+
+  establish_baseline:
+    type: task
+    title: Establish the failing baseline
+    description: >
+      Run the test suite once and record exactly which tests fail and why. Change nothing.
+      This baseline is what the repair loop is measured against.
+    inputs:
+      command:
+        type: string
+        description: The test command to run.
+        from: params.test_command
+    outputs:
+      baseline_failures:
+        type: array
+        description: Node ids of the failing tests at the start.
+        schema:
+          type: array
+          items: { type: string }
+      baseline_report:
+        type: text
+        description: Raw output of the baseline test run.
+    intelligence:
+      tier: minimal
+      hints: [tool_use_heavy, low_cost]
+      rationale: Run one command and transcribe the result.
+    requirements:
+      tools: [shell_exec, file_read]
+      permissions:
+        - fs:read:**
+        - shell:exec:pytest*
+      workspace: read_only
+    constraints:
+      max_agent_steps: 5
+      determinism: reproducible
+    success:
+      summary: A baseline failure list was captured.
+      criteria:
+        - id: baseline_captured
+          kind: artifact_present
+          description: The baseline report was recorded.
+          output: baseline_report
+    estimate: { effort: xs, cost_usd: 0.1 }
+
+  repair_loop:
+    type: loop
+    title: Diagnose and fix until the suite is green
+    description: >
+      Repeatedly run the suite, diagnose the top failure, and apply a fix, stopping as
+      soon as nothing fails. Bounded at five iterations; escalate to a human rather than
+      grinding.
+    depends_on: [establish_baseline]
+    inputs:
+      baseline:
+        type: array
+        description: The failures this loop is expected to clear.
+        from: nodes.establish_baseline.outputs.baseline_failures
+    loop:
+      mode: until
+      condition: nodes.run_tests.outputs.failing_count == 0
+      max_iterations: 5
+      on_max_iterations: escalate
+      carry:
+        diagnosis: previous_diagnosis
+      collect:
+        final_report: nodes.run_tests.outputs.report
+        remaining_failures: nodes.run_tests.outputs.failing_count
+        last_change: default(nodes.apply_fix.outputs.summary, "no fix applied in the final iteration")
+      body:
+        title: One diagnose-and-fix pass
+        params:
+          previous_diagnosis:
+            type: text
+            description: The diagnosis from the previous iteration; empty on the first.
+            required: false
+            default: ""
+        entrypoints: [run_tests]
+        nodes:
+
+          run_tests:
+            type: task
+            title: Run the test suite
+            description: >
+              Run the full test suite and report the number of failing tests plus the
+              full output. Do not attempt any fixes here.
+            outputs:
+              failing_count:
+                type: integer
+                description: Number of failing tests in this run.
+              report:
+                type: text
+                description: Full test output for this run.
+            intelligence:
+              tier: minimal
+              hints: [tool_use_heavy, low_cost]
+              rationale: Mechanical execution and transcription.
+            requirements:
+              tools: [shell_exec, file_read]
+              permissions:
+                - fs:read:**
+                - shell:exec:pytest*
+              workspace: read_only
+            constraints:
+              max_agent_steps: 4
+              determinism: reproducible
+            success:
+              summary: A failure count was produced.
+              criteria:
+                - id: count_present
+                  kind: artifact_present
+                  description: A failing-test count was reported.
+                  output: failing_count
+
+          diagnose:
+            type: task
+            title: Diagnose the highest-value failure
+            description: >
+              Read the test output and identify the single root cause that, if fixed,
+              clears the most failures. Explain the mechanism, name the file and function
+              responsible, and state what the correct behavior should be. Propose a fix
+              in prose. Do not edit any files.
+            inputs:
+              report:
+                type: text
+                description: Output from this iteration's test run.
+                from: nodes.run_tests.outputs.report
+              previous:
+                type: text
+                description: What was diagnosed last iteration, so the same theory is not retried.
+                from: params.previous_diagnosis
+              rules:
+                type: text
+                description: The project's repair rules.
+                from: context.repair_rules
+              iteration:
+                type: integer
+                description: Which pass this is, 1-based.
+                from: loop.iteration
+            outputs:
+              diagnosis:
+                type: markdown
+                description: Root-cause analysis and the proposed fix.
+              target_files:
+                type: file_set
+                description: Files the fix is expected to touch.
+            intelligence:
+              tier: advanced
+              hints: [reasoning_heavy, code_comprehension]
+              rationale: Root-causing a failure across files is exactly the ambiguity-resolution case.
+            requirements:
+              tools: [file_read, file_search, shell_exec]
+              permissions:
+                - fs:read:**
+                - shell:exec:pytest*
+              workspace: read_only
+            constraints:
+              max_agent_steps: 25
+              max_cost_usd: 1.5
+            success:
+              summary: A concrete, file-level diagnosis exists.
+              criteria:
+                - id: diagnosis_present
+                  kind: artifact_present
+                  description: A diagnosis was written.
+                  output: diagnosis
+                - id: names_files
+                  kind: expression
+                  description: The diagnosis names at least one file to change.
+                  expr: len(self.outputs.target_files) > 0
+
+          apply_fix:
+            type: task
+            title: Apply the proposed fix
+            description: >
+              Implement exactly the fix described in the diagnosis, in the files it names.
+              Do not weaken, skip, or delete a test to reach green. If implementing the
+              diagnosis turns out to be wrong, stop and say so rather than improvising a
+              different change.
+            depends_on: [diagnose]
+            inputs:
+              diagnosis:
+                type: markdown
+                description: The diagnosis to implement.
+                from: nodes.diagnose.outputs.diagnosis
+              targets:
+                type: file_set
+                description: The files the fix should touch.
+                from: nodes.diagnose.outputs.target_files
+              rules:
+                type: text
+                description: The project's repair rules.
+                from: context.repair_rules
+            outputs:
+              summary:
+                type: markdown
+                description: What was changed and why.
+            intelligence:
+              tier: advanced
+              hints: [code_generation, precision_critical]
+              escalate_to: frontier
+              rationale: >
+                Implementing a root-cause fix without collateral damage; a retry means the
+                obvious reading of the diagnosis was wrong.
+            requirements:
+              tools: [file_read, file_search, file_write, shell_exec]
+              permissions:
+                - fs:read:**
+                - fs:write:src/**
+                - fs:write:tests/**
+                - shell:exec:pytest*
+              workspace: read_write
+            constraints:
+              max_agent_steps: 30
+              max_cost_usd: 2.5
+            failure:
+              retry:
+                max_attempts: 2
+                backoff: fixed
+                initial_delay_seconds: 1
+                retry_on: [tool_error, criteria_failed]
+                feedback: failed_criteria
+                escalate_intelligence: true
+              on_exhausted: fail
+            success:
+              summary: The change is syntactically valid and does not delete tests.
+              evaluation_order: cheapest_first
+              criteria:
+                - id: still_collects
+                  kind: command
+                  description: The test suite still collects, so the change did not break imports.
+                  run: pytest --collect-only -q
+                  expect_exit_code: 0
+                  timeout_seconds: 300
+                - id: no_tests_removed
+                  kind: command
+                  description: No test files were deleted.
+                  run: git diff --diff-filter=D --name-only -- tests/ | (! grep -q .)
+                  expect_exit_code: 0
+                  timeout_seconds: 60
+
+        edges:
+          - from: run_tests
+            to: diagnose
+            kind: conditional
+            when: nodes.run_tests.outputs.failing_count > 0
+            label: still failing
+
+    intelligence:
+      tier: standard
+      hints: [tool_use_heavy]
+      rationale: The loop node itself only orchestrates; its body carries the real work.
+    failure:
+      escalation:
+        to: human
+        roles: [maintainer]
+        message: >
+          The repair loop ran out of iterations with
+          ${{ nodes.repair_loop.outputs.remaining_failures }} test(s) still failing.
+        include: [failed_criteria, diagnostics]
+      on_exhausted: escalate
+    estimate: { effort: xl, cost_usd: 12.0 }
+
+  summarize_repair:
+    type: task
+    title: Summarize what was repaired
+    description: >
+      Write a short changelog-style summary of what was broken, what was changed, and what
+      a reviewer should look at first. Compare against the baseline failure list.
+    depends_on: [repair_loop]
+    inputs:
+      baseline:
+        type: array
+        description: The failures the loop started with.
+        from: nodes.establish_baseline.outputs.baseline_failures
+      final_report:
+        type: text
+        description: The final test run's output.
+        from: nodes.repair_loop.outputs.final_report
+      last_change:
+        type: markdown
+        description: The last change the loop applied.
+        from: nodes.repair_loop.outputs.last_change
+    outputs:
+      summary:
+        type: markdown
+        description: The repair summary.
+        path_hint: docs/internal/test-repair-summary.md
+    intelligence:
+      tier: standard
+      hints: [long_context]
+    requirements:
+      tools: [file_read, file_write]
+      permissions:
+        - fs:read:**
+        - fs:write:docs/internal/**
+      workspace: read_write
+    success:
+      summary: A repair summary exists.
+      criteria:
+        - id: summary_written
+          kind: file_exists
+          description: The repair summary file exists.
+          path: docs/internal/test-repair-summary.md
+          min_bytes: 300
+    estimate: { effort: s, cost_usd: 0.4 }
+
+outputs:
+  repair_summary:
+    type: markdown
+    description: Human-readable account of the repair.
+    from: nodes.summarize_repair.outputs.summary
+  baseline_report:
+    type: text
+    description: The original failing test output, kept for comparison.
+    from: nodes.establish_baseline.outputs.baseline_report
+  remaining_failures:
+    type: integer
+    description: Failing tests left when the loop exited. Zero on success.
+    from: nodes.repair_loop.outputs.remaining_failures
+
+success:
+  summary: The suite is green and the repair is documented.
+  criteria:
+    - id: suite_green
+      kind: command
+      description: The full test suite passes.
+      run: pytest -q
+      expect_exit_code: 0
+      timeout_seconds: 1800
+    - id: nothing_left_failing
+      kind: expression
+      description: The loop exited with no remaining failures.
+      expr: outputs.remaining_failures == 0

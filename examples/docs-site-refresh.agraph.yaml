@@ -1,0 +1,448 @@
+ags_version: "1.0"
+kind: AgenticGraph
+id: examples/docs-site-refresh
+title: Refresh a documentation site
+version: 1.0.0
+requires_conformance: 3
+
+objective: >
+  Bring an out-of-date documentation site back in line with the code it documents: refresh
+  every stale page, audit the result for broken links, fix what is broken, and verify the
+  site still builds.
+
+description: >
+  This example exists to demonstrate composition. It uses all three ways AGS reuses graph
+  structure, plus fan-out:
+
+    * `refresh_pages` is a `map` node with an inline body, fanning out one agentic loop
+      per stale page with a hard width ceiling.
+    * `link_audit` is a `subgraph` node with a `ref` to another AGS document on disk
+      (examples/link-audit.agraph.yaml), passing parameters in and mapping outputs out.
+    * `verify_and_publish` is a `subgraph` node with `use`, pointing at a named fragment
+      declared in this document's own `subgraphs` block.
+
+  It also shows conditional routing on a subgraph's output and a `join: any` fan-in, so
+  the publish step runs whether or not a link-fixing pass was needed.
+
+labels: [example, subgraph, map, composition, docs]
+
+params:
+  site_root:
+    type: directory
+    description: Directory containing the built documentation site.
+    required: true
+    default: site
+  docs_source:
+    type: directory
+    description: Directory containing the documentation sources.
+    required: true
+    default: docs
+
+context:
+  docs_conventions: >
+    Second person, present tense. Every code sample must be runnable as written. Version
+    numbers appear once, in the front matter, never inline in prose.
+
+constraints:
+  max_cost_usd: 30.0
+  max_wall_clock_seconds: 10800
+  max_parallel_nodes: 4
+  max_node_executions: 300
+  max_subgraph_depth: 3
+
+policy:
+  on_expression_error: fail
+  on_node_failure: isolate
+  checkpointing: per_node
+  record_run: true
+
+subgraphs:
+
+  publish_checks:
+    title: Build the site and verify the build
+    description: Reusable two-step build verification, used by any graph that publishes docs.
+    params:
+      source_dir:
+        type: directory
+        description: Documentation source directory.
+        required: true
+    entrypoints: [build_site]
+    nodes:
+      build_site:
+        type: task
+        title: Build the documentation site
+        description: >
+          Run the site build from the given source directory and capture the full build
+          log. Treat build warnings as information, not failures.
+        inputs:
+          source:
+            type: directory
+            description: Where the docs sources live.
+            from: params.source_dir
+        outputs:
+          build_log:
+            type: text
+            description: Full output of the build.
+        intelligence:
+          tier: minimal
+          hints: [tool_use_heavy, low_cost]
+          rationale: One fixed command.
+        requirements:
+          tools: [shell_exec, file_read]
+          permissions:
+            - fs:read:**
+            - fs:write:site/**
+            - shell:exec:mkdocs*
+          workspace: read_write
+        constraints:
+          max_agent_steps: 5
+          determinism: reproducible
+        success:
+          summary: The site builds.
+          criteria:
+            - id: build_succeeds
+              kind: command
+              description: The documentation build exits cleanly.
+              run: mkdocs build --strict
+              expect_exit_code: 0
+              timeout_seconds: 900
+
+      check_build:
+        type: task
+        title: Sanity-check the built site
+        description: >
+          Confirm the built site has an index page, that every top-level nav entry
+          resolves to a real file, and that no page is empty. Report anything suspicious.
+        depends_on: [build_site]
+        inputs:
+          log:
+            type: text
+            description: The build log to cross-check against.
+            from: nodes.build_site.outputs.build_log
+        outputs:
+          verdict:
+            type: markdown
+            description: Build sanity report.
+        intelligence:
+          tier: standard
+          hints: [precision_critical]
+        requirements:
+          tools: [file_read, file_search]
+          permissions:
+            - fs:read:**
+          workspace: read_only
+        success:
+          summary: A build sanity report exists.
+          criteria:
+            - id: index_exists
+              kind: file_exists
+              description: The built site has an index page.
+              path: site/index.html
+              min_bytes: 100
+            - id: verdict_present
+              kind: artifact_present
+              description: The sanity report was produced.
+              output: verdict
+    outputs:
+      build_log:
+        type: text
+        description: The build output.
+        from: nodes.build_site.outputs.build_log
+      verdict:
+        type: markdown
+        description: The build sanity report.
+        from: nodes.check_build.outputs.verdict
+
+entrypoints: [inventory_pages]
+
+nodes:
+
+  inventory_pages:
+    type: task
+    title: Find the stale pages
+    description: >
+      Compare each documentation page against the code and configuration it describes and
+      list the pages that are out of date. For each, say specifically what is stale.
+      Change nothing.
+    inputs:
+      source:
+        type: directory
+        description: Documentation sources to inventory.
+        from: params.docs_source
+    outputs:
+      pages:
+        type: array
+        description: Stale pages, each with path, reason, and severity.
+        schema:
+          type: array
+          items:
+            type: object
+            required: [path, reason]
+            properties:
+              path: { type: string }
+              reason: { type: string }
+              severity: { type: string, enum: [high, medium, low] }
+      inventory:
+        type: markdown
+        description: The staleness inventory, as a readable report.
+        path_hint: docs/internal/docs-staleness.md
+    intelligence:
+      tier: advanced
+      hints: [long_context, code_comprehension]
+      min_context_tokens: 200000
+      rationale: >
+        Deciding whether prose still describes the code requires reading both and holding
+        them side by side; a smaller model reliably misses drift.
+    requirements:
+      tools: [file_read, file_search, file_write]
+      permissions:
+        - fs:read:**
+        - fs:write:docs/internal/**
+      workspace: read_write
+    constraints:
+      max_agent_steps: 40
+      max_cost_usd: 5.0
+    success:
+      summary: A staleness inventory exists.
+      criteria:
+        - id: inventory_written
+          kind: file_exists
+          description: The staleness inventory was written.
+          path: docs/internal/docs-staleness.md
+          min_bytes: 400
+    estimate: { effort: l, cost_usd: 5.0 }
+
+  refresh_pages:
+    type: map
+    title: Refresh each stale page
+    description: >
+      Run one independent refresh pass per stale page. Pages are independent, so they fan
+      out; each writes only its own file.
+    depends_on: [inventory_pages]
+    map:
+      over: nodes.inventory_pages.outputs.pages
+      as: page
+      index_as: page_index
+      max_items: 200
+      on_over_limit: fail
+      max_parallel: 4
+      on_item_failure: continue
+      collect:
+        summaries: nodes.refresh_page.outputs.summary
+        updated_paths: nodes.refresh_page.outputs.updated_path
+      body:
+        title: Refresh one page
+        entrypoints: [refresh_page]
+        nodes:
+          refresh_page:
+            type: task
+            title: Bring one page back in line with the code
+            description: >
+              Update this page so it describes the current behavior of the code it covers.
+              Fix the specific staleness reason given, then re-read the whole page for
+              anything else that has drifted. Edit only this page.
+            inputs:
+              target:
+                type: object
+                description: >
+                  The stale page record, with its path, staleness reason, and severity.
+                from: page
+              position:
+                type: integer
+                description: Index of this page in the fan-out, for logging.
+                from: page_index
+              conventions:
+                type: text
+                description: The documentation style conventions.
+                from: context.docs_conventions
+            outputs:
+              summary:
+                type: markdown
+                description: What changed on this page and why.
+              updated_path:
+                type: file
+                description: The page that was rewritten.
+            intelligence:
+              tier: standard
+              hints: [code_comprehension, structured_output]
+            requirements:
+              tools: [file_read, file_search, file_write]
+              permissions:
+                - fs:read:**
+                - fs:write:docs/**
+              workspace: read_write
+            constraints:
+              max_agent_steps: 20
+              max_cost_usd: 1.0
+              max_wall_clock_seconds: 900
+            failure:
+              retry:
+                max_attempts: 2
+                retry_on: [transient, tool_error, criteria_failed]
+                feedback: failed_criteria
+              on_exhausted: fail
+            success:
+              summary: The page was rewritten and still parses as valid Markdown.
+              criteria:
+                - id: page_updated
+                  kind: artifact_present
+                  description: A rewritten page path was reported.
+                  output: updated_path
+                - id: summary_written
+                  kind: artifact_present
+                  description: A change summary was produced.
+                  output: summary
+    estimate: { effort: xl, cost_usd: 15.0 }
+
+  link_audit:
+    type: subgraph
+    title: Audit the refreshed site for broken links
+    description: >
+      Run the shared link-audit graph against the freshly built site, prioritizing the
+      pages this run touched.
+    depends_on: [refresh_pages]
+    subgraph:
+      ref:
+        uri: ./link-audit.agraph.yaml
+        expected_id: examples/link-audit
+      params:
+        site_root: params.site_root
+        changed_pages: nodes.refresh_pages.outputs.updated_paths
+      inherit_context: false
+      outputs_from:
+        broken_links: outputs.broken_links
+        audit_report: outputs.audit_report
+    estimate: { effort: m, cost_usd: 2.0 }
+
+  fix_links:
+    type: task
+    title: Fix the broken links
+    description: >
+      Repair every link in the broken-link report. Prefer correcting the target over
+      deleting the link. When a target genuinely no longer exists, remove the link and say
+      so in the summary rather than pointing it somewhere plausible.
+    inputs:
+      broken:
+        type: array
+        description: The broken links to repair.
+        from: nodes.link_audit.outputs.broken_links
+      report:
+        type: markdown
+        description: The triage report, for the suggested fixes.
+        from: nodes.link_audit.outputs.audit_report
+    outputs:
+      fixes:
+        type: markdown
+        description: What was repaired and what was removed.
+    intelligence:
+      tier: standard
+      hints: [precision_critical]
+    requirements:
+      tools: [file_read, file_search, file_write]
+      permissions:
+        - fs:read:**
+        - fs:write:docs/**
+      workspace: read_write
+    constraints:
+      max_agent_steps: 30
+      max_cost_usd: 3.0
+      concurrency_group: docs_tree
+    human:
+      - id: confirm_removals
+        at: after_outputs
+        mode: review
+        required: false
+        prompt: "Review any links that were removed rather than repaired."
+        roles: [docs-owner]
+    success:
+      summary: No broken links remain.
+      criteria:
+        - id: recheck_clean
+          kind: command
+          description: A re-run of the link checker finds nothing broken.
+          run: python scripts/check_links.py docs
+          expect_exit_code: 0
+          timeout_seconds: 900
+    estimate: { effort: m, cost_usd: 3.0 }
+
+  verify_and_publish:
+    type: subgraph
+    title: Build and verify the site
+    description: >
+      Run the shared build-and-verify fragment. This is the last gate before the site is
+      considered refreshed.
+    join: any
+    subgraph:
+      use: publish_checks
+      params:
+        source_dir: params.docs_source
+      outputs_from:
+        build_log: outputs.build_log
+        build_verdict: outputs.verdict
+    estimate: { effort: s, cost_usd: 0.5 }
+
+edges:
+  - from: link_audit
+    to: fix_links
+    kind: conditional
+    when: len(nodes.link_audit.outputs.broken_links) > 0
+    label: links broken
+
+  - from: link_audit
+    to: verify_and_publish
+    kind: conditional
+    when: len(nodes.link_audit.outputs.broken_links) == 0
+    label: links clean
+
+  - from: fix_links
+    to: verify_and_publish
+    kind: sequence
+    label: after link repair
+
+outputs:
+  staleness_inventory:
+    type: markdown
+    description: What was found to be out of date before the refresh.
+    from: nodes.inventory_pages.outputs.inventory
+  page_summaries:
+    type: array
+    description: Per-page summaries of what the refresh changed.
+    from: nodes.refresh_pages.outputs.summaries
+  link_audit_report:
+    type: markdown
+    description: The link audit's triage report.
+    from: nodes.link_audit.outputs.audit_report
+  link_fixes:
+    type: markdown
+    description: What the link-repair pass changed. Absent when no links were broken.
+    required: false
+    from: nodes.fix_links.outputs.fixes
+  build_log:
+    type: text
+    description: Output of the final site build.
+    from: nodes.verify_and_publish.outputs.build_log
+  build_verdict:
+    type: markdown
+    description: The final build sanity report.
+    from: nodes.verify_and_publish.outputs.build_verdict
+
+success:
+  summary: The site is current, link-clean, and builds.
+  criteria:
+    - id: builds_clean
+      kind: command
+      description: A strict documentation build succeeds.
+      run: mkdocs build --strict
+      expect_exit_code: 0
+      timeout_seconds: 900
+    - id: no_broken_links
+      kind: command
+      description: The link checker reports nothing broken.
+      run: python scripts/check_links.py docs
+      expect_exit_code: 0
+      timeout_seconds: 900
+    - id: owner_signoff
+      kind: human
+      description: The documentation owner confirms the refresh looks right.
+      prompt: "Docs refresh is complete. Confirm the site reads correctly."
+      roles: [docs-owner]

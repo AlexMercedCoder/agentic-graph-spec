@@ -1,0 +1,888 @@
+ags_version: "1.0"
+kind: AgenticGraph
+id: examples/library-v1-release
+title: Take an internal Python library to a documented, published v1.0
+version: 1.0.0
+requires_conformance: 3
+
+objective: >
+  Turn an internal, prototype-quality Python library into a v1.0 release that has a
+  deliberate public API, a real test suite, published reference documentation, and a
+  human-approved release artifact on the package index.
+
+description: >
+  This is the canonical AGS example. It exercises the parts of the spec a real project
+  actually needs: a design phase gated by human approval, three parallel implementation
+  tracks that fan back in, an agent-evaluated decision that routes between a remediation
+  path and a release path, machine-checkable and judged acceptance criteria, budgets,
+  intelligence tiers spanning minimal through frontier, and a human checkpoint immediately
+  before the one irreversible action in the graph.
+
+  Out of scope: changing the library's runtime dependencies, and anything touching CI
+  infrastructure.
+
+authors:
+  - name: Agentic Graph Spec examples
+    role: author
+
+labels: [example, canonical, python, release]
+
+params:
+  repo_path:
+    type: directory
+    description: Workspace-relative path to the library checkout.
+    required: true
+    default: "."
+  target_version:
+    type: string
+    description: The semantic version to release.
+    required: true
+    default: "1.0.0"
+  package_index:
+    type: string
+    description: Which package index to publish to.
+    required: false
+    default: testpypi
+    enum: [testpypi, pypi]
+
+context:
+  language: python
+  min_python: "3.11"
+  style_guide: >
+    Ruff defaults with a 100-column line limit. Public functions carry type annotations
+    and numpydoc-style docstrings. No bare excepts. No new runtime dependencies.
+  api_philosophy: >
+    Small surface, boring names, no keyword-only explosion. Anything not documented in
+    the reference is private and may change without notice.
+
+attachments:
+  - name: current_readme
+    description: The library's existing README, as the starting point for docs work.
+    path: README.md
+    media_type: text/markdown
+
+secrets:
+  - name: package_index_token
+    description: API token for the package index. Injected only into the publish node.
+    required: true
+
+constraints:
+  max_cost_usd: 25.0
+  max_wall_clock_seconds: 21600
+  max_parallel_nodes: 3
+  max_node_executions: 60
+
+policy:
+  on_expression_error: fail
+  on_node_failure: isolate
+  default_human_timeout_seconds: 86400
+  on_human_timeout: hold
+  checkpointing: per_node
+  record_run: true
+
+defaults:
+  intelligence:
+    tier: standard
+  requirements:
+    tools: [file_read, file_search]
+    permissions:
+      - fs:read:**
+    workspace: read_only
+    network: none
+  constraints:
+    max_agent_steps: 25
+    max_wall_clock_seconds: 1800
+    determinism: relaxed
+  failure:
+    retry:
+      max_attempts: 2
+      backoff: exponential
+      retry_on: [transient, tool_error, criteria_failed]
+      feedback: failed_criteria
+    on_exhausted: fail
+
+entrypoints: [audit_codebase]
+
+nodes:
+
+  audit_codebase:
+    type: task
+    title: Audit the current codebase
+    description: >
+      Survey the library and produce a written audit covering: every module and what it
+      is for, which symbols are currently imported by callers outside the package, test
+      coverage as it stands today, and a ranked list of the gaps that block a credible
+      v1.0. Do not change any code.
+    rationale: Nothing downstream can be scoped honestly without a real picture of the starting point.
+    outputs:
+      audit:
+        type: markdown
+        description: The audit report, one section per finding area.
+        path_hint: docs/internal/v1-audit.md
+      gap_list:
+        type: array
+        description: Ranked gaps blocking v1.0, each with a title, severity and affected modules.
+        schema:
+          type: array
+          items:
+            type: object
+            required: [title, severity, modules]
+            properties:
+              title: { type: string }
+              severity: { type: string, enum: [blocker, major, minor] }
+              modules: { type: array, items: { type: string } }
+    intelligence:
+      tier: standard
+      hints: [code_comprehension, long_context]
+      min_context_tokens: 100000
+    success:
+      summary: A written audit exists and enumerates at least one concrete gap.
+      criteria:
+        - id: audit_written
+          kind: file_exists
+          description: The audit report exists and is substantive, not a stub.
+          path: docs/internal/v1-audit.md
+          min_bytes: 1200
+        - id: gaps_enumerated
+          kind: expression
+          description: At least one gap was identified.
+          expr: len(self.outputs.gap_list) > 0
+    estimate: { effort: m, cost_usd: 1.2 }
+
+  define_public_api:
+    type: task
+    title: Define the v1.0 public API
+    description: >
+      Decide exactly which symbols are public in v1.0 and write the design document that
+      justifies it. Cover, for every public symbol: its signature, its stability guarantee,
+      and the deprecation path for anything it replaces. Explicitly list what stays private.
+      Write the design only; do not implement it.
+    depends_on: [audit_codebase]
+    inputs:
+      audit:
+        type: markdown
+        description: The codebase audit that scopes this decision.
+        from: nodes.audit_codebase.outputs.audit
+      gaps:
+        type: array
+        description: The ranked gap list to design against.
+        from: nodes.audit_codebase.outputs.gap_list
+      philosophy:
+        type: text
+        description: The project's API philosophy.
+        from: context.api_philosophy
+    outputs:
+      design_doc:
+        type: markdown
+        description: The API design document.
+        path_hint: docs/internal/v1-api-design.md
+      public_symbols:
+        type: array
+        description: Fully-qualified names of every public v1.0 symbol.
+        schema:
+          type: array
+          items: { type: string }
+    intelligence:
+      tier: frontier
+      hints: [reasoning_heavy, precision_critical]
+      rationale: >
+        A public API is the one decision in this graph that cannot be undone after release.
+        Mistakes here are silent at merge time and expensive for years afterwards.
+    constraints:
+      max_agent_steps: 40
+      max_cost_usd: 4.0
+    success:
+      summary: A reviewable API design exists and names its public surface.
+      criteria:
+        - id: design_written
+          kind: file_exists
+          description: The design document exists.
+          path: docs/internal/v1-api-design.md
+          min_bytes: 2000
+        - id: symbols_listed
+          kind: expression
+          description: The design names at least three public symbols.
+          expr: len(self.outputs.public_symbols) >= 3
+        - id: addresses_gaps
+          kind: llm_judge
+          description: >
+            Every blocker-severity gap from the audit is either resolved by the design or
+            explicitly deferred with a stated reason.
+          rubric: >
+            You are reviewing an API design against an audit's gap list. Score 1.0 if every
+            gap with severity "blocker" is either addressed by the design or explicitly
+            deferred with a reason. Score 0.5 if some blockers are handled implicitly but
+            never named. Score 0.0 if any blocker is simply absent from the design.
+          inputs:
+            - nodes.audit_codebase.outputs.gap_list
+            - self.outputs.design_doc
+          threshold: 0.8
+          samples: 3
+          judge_intelligence:
+            tier: advanced
+            hints: [adversarial_review]
+    estimate: { effort: l, cost_usd: 4.0 }
+
+  api_design_review:
+    type: gate
+    title: Approve the public API design
+    description: >
+      A maintainer approves the v1.0 public API before any implementation work begins.
+      This is the cheapest possible place to catch a wrong API.
+    depends_on: [define_public_api]
+    gate:
+      mode: approve
+      roles: [maintainer]
+      prompt: |
+        Approve the v1.0 public API for ${{ graph.title }}?
+
+        Proposed public symbols:
+        ${{ nodes.define_public_api.outputs.public_symbols }}
+
+        Once implementation starts, changing this costs three parallel work streams.
+      present:
+        - nodes.define_public_api.outputs.design_doc
+      timeout_seconds: 172800
+      on_timeout: hold
+      on_reject: fail
+    estimate: { effort: xs }
+
+  implement_api:
+    type: task
+    title: Implement the approved public API
+    description: >
+      Implement exactly the public API described in the approved design. Keep private
+      helpers private. Add deprecation shims for any symbol the design says is being
+      replaced. Do not add features the design does not describe, and do not add new
+      runtime dependencies.
+    depends_on: [api_design_review]
+    inputs:
+      design:
+        type: markdown
+        description: The approved API design.
+        from: nodes.define_public_api.outputs.design_doc
+      symbols:
+        type: array
+        description: The public symbols to expose.
+        from: nodes.define_public_api.outputs.public_symbols
+      style:
+        type: text
+        description: Project code style rules.
+        from: context.style_guide
+    outputs:
+      changed_files:
+        type: file_set
+        description: Source files added or modified.
+      implementation_notes:
+        type: markdown
+        description: Notes on any deviation from the design and why.
+        required: false
+    intelligence:
+      tier: advanced
+      hints: [code_generation, precision_critical]
+      escalate_to: frontier
+      rationale: Cross-module refactoring with backward-compatibility shims.
+    requirements:
+      tools: [file_read, file_search, file_write, shell_exec]
+      permissions:
+        - fs:read:**
+        - fs:write:src/**
+        - shell:exec:ruff*
+        - shell:exec:python*
+      workspace: read_write
+      network: none
+    constraints:
+      max_agent_steps: 60
+      max_cost_usd: 6.0
+      max_wall_clock_seconds: 3600
+      concurrency_group: source_tree
+    failure:
+      retry:
+        max_attempts: 3
+        backoff: exponential
+        retry_on: [transient, tool_error, criteria_failed]
+        feedback: failed_criteria
+        escalate_intelligence: true
+      escalation:
+        to: human
+        roles: [maintainer]
+        message: "Implementation of the v1.0 API failed after 3 attempts."
+        include: [failed_criteria, diagnostics]
+      on_exhausted: fail
+    human:
+      - id: review_implementation
+        at: after_outputs
+        mode: review
+        required: false
+        prompt: Skim the implementation diff before the quality gate runs.
+        roles: [maintainer]
+    success:
+      summary: The public API imports cleanly and the codebase lints and type-checks.
+      evaluation_order: cheapest_first
+      criteria:
+        - id: lint_clean
+          kind: command
+          description: Ruff reports no violations.
+          run: ruff check src
+          expect_exit_code: 0
+          timeout_seconds: 180
+        - id: types_clean
+          kind: command
+          description: mypy reports no errors on the package.
+          run: mypy src
+          expect_exit_code: 0
+          timeout_seconds: 600
+        - id: public_api_importable
+          kind: command
+          description: Every declared public symbol can actually be imported.
+          run: python scripts/check_public_api.py
+          expect_exit_code: 0
+          timeout_seconds: 120
+        - id: no_new_dependencies
+          kind: command
+          description: The dependency set is unchanged.
+          run: git diff --exit-code -- pyproject.toml
+          expect_exit_code: 0
+          severity: advisory
+    estimate: { effort: xl, cost_usd: 6.0 }
+
+  write_test_suite:
+    type: task
+    title: Build the v1.0 test suite
+    description: >
+      Write tests that cover every public symbol in the approved design: happy path,
+      documented error behavior, and the boundary conditions the design calls out. Tests
+      must be deterministic and must not reach the network. Do not modify library source
+      to make a test pass; report the problem instead.
+    depends_on: [api_design_review]
+    inputs:
+      design:
+        type: markdown
+        description: The approved API design.
+        from: nodes.define_public_api.outputs.design_doc
+      symbols:
+        type: array
+        description: The public symbols that must be covered.
+        from: nodes.define_public_api.outputs.public_symbols
+    outputs:
+      test_files:
+        type: file_set
+        description: Test modules added or modified.
+      coverage_percent:
+        type: number
+        description: Statement coverage of the package after these tests.
+    intelligence:
+      tier: standard
+      hints: [code_generation]
+    requirements:
+      tools: [file_read, file_search, file_write, shell_exec]
+      permissions:
+        - fs:read:**
+        - fs:write:tests/**
+        - shell:exec:pytest*
+      workspace: read_write
+      network: none
+    constraints:
+      max_agent_steps: 50
+      max_cost_usd: 4.0
+      concurrency_group: test_tree
+    success:
+      summary: The suite passes and covers at least 85% of the package.
+      criteria:
+        - id: suite_passes
+          kind: command
+          description: The whole test suite passes.
+          run: pytest -q
+          expect_exit_code: 0
+          timeout_seconds: 900
+        - id: coverage_threshold
+          kind: expression
+          description: Statement coverage is at least 85%.
+          expr: self.outputs.coverage_percent >= 85
+    estimate: { effort: l, cost_usd: 4.0 }
+
+  write_documentation:
+    type: task
+    title: Write the v1.0 reference documentation
+    description: >
+      Produce the public reference documentation for v1.0: an overview page, a page per
+      public module, a migration note for every deprecated symbol, and a quickstart that
+      a new user can follow end to end. Every code sample must be runnable as written.
+    depends_on: [api_design_review]
+    inputs:
+      design:
+        type: markdown
+        description: The approved API design.
+        from: nodes.define_public_api.outputs.design_doc
+      existing_readme:
+        type: markdown
+        description: The current README, as the starting point.
+        from: attachments.current_readme
+    outputs:
+      api_reference:
+        type: file_set
+        description: The generated reference pages.
+        path_hint: docs/reference/
+      quickstart:
+        type: markdown
+        description: The quickstart page.
+        path_hint: docs/quickstart.md
+    intelligence:
+      tier: standard
+      hints: [long_context, code_comprehension]
+    requirements:
+      tools: [file_read, file_search, file_write, shell_exec]
+      permissions:
+        - fs:read:**
+        - fs:write:docs/**
+        - shell:exec:python*
+      workspace: read_write
+    constraints:
+      max_cost_usd: 3.0
+      concurrency_group: docs_tree
+    success:
+      summary: The docs build and every code sample executes.
+      criteria:
+        - id: quickstart_exists
+          kind: file_exists
+          description: The quickstart page exists and is substantive.
+          path: docs/quickstart.md
+          min_bytes: 800
+        - id: samples_run
+          kind: command
+          description: Every documented code sample executes without error.
+          run: python scripts/run_doc_samples.py docs
+          expect_exit_code: 0
+          timeout_seconds: 600
+        - id: docs_readable
+          kind: llm_judge
+          description: The quickstart is genuinely followable by a newcomer.
+          rubric: >
+            Read the quickstart as someone who has never used this library. Score 1.0 if you
+            could install it, run the first example, and understand what happened without
+            consulting other pages. Score 0.5 if you would need one more page. Score 0.0 if
+            a required step is missing or wrong.
+          inputs:
+            - self.outputs.quickstart
+          threshold: 0.7
+          severity: advisory
+    estimate: { effort: m, cost_usd: 3.0 }
+
+  verify_quality:
+    type: task
+    title: Run the full quality gate
+    description: >
+      Run the complete verification pass over the merged work: full test suite with
+      coverage, lint, type check, and a build of the distribution artifacts. Report the
+      results; do not fix anything you find.
+    depends_on: [implement_api, write_test_suite]
+    join: all
+    outputs:
+      report:
+        type: markdown
+        description: Consolidated quality report.
+        path_hint: docs/internal/v1-quality-report.md
+      failing_checks:
+        type: array
+        description: Names of the checks that failed, empty when everything passed.
+        schema:
+          type: array
+          items: { type: string }
+    intelligence:
+      tier: minimal
+      hints: [tool_use_heavy, low_cost]
+      rationale: Running a fixed set of commands and transcribing the results.
+    requirements:
+      tools: [file_read, file_write, shell_exec]
+      permissions:
+        - fs:read:**
+        - fs:write:docs/internal/**
+        - shell:exec:pytest*
+        - shell:exec:ruff*
+        - shell:exec:mypy*
+        - shell:exec:python*
+      workspace: read_write
+    constraints:
+      max_agent_steps: 15
+      determinism: reproducible
+      concurrency_group: source_tree
+    success:
+      summary: The quality report exists.
+      criteria:
+        - id: report_written
+          kind: artifact_present
+          description: A quality report was produced.
+          output: report
+    estimate: { effort: s, cost_usd: 0.4 }
+
+  release_readiness:
+    type: decision
+    title: Decide whether the release is ready
+    description: >
+      Weigh the quality report and the documentation state and decide whether this is
+      ready to package, or whether it needs a remediation pass first.
+    depends_on: [verify_quality, write_documentation]
+    join: all
+    inputs:
+      quality:
+        type: markdown
+        description: The consolidated quality report.
+        from: nodes.verify_quality.outputs.report
+      failing:
+        type: array
+        description: Checks that failed during verification.
+        from: nodes.verify_quality.outputs.failing_checks
+    decision:
+      question: >
+        Given the quality report and the failing-check list, is this ready to package for
+        release, or does it need a remediation pass first? Treat any failing check as
+        disqualifying. Treat a missing migration note for a deprecated symbol as
+        disqualifying.
+      evaluator: agent
+      branches:
+        - label: ready_to_release
+          description: Everything passes and the documentation is complete.
+        - label: needs_remediation
+          description: At least one check failed or documentation is incomplete.
+      default_branch: needs_remediation
+    outputs:
+      reasoning:
+        type: text
+        description: Why this branch was chosen.
+    intelligence:
+      tier: advanced
+      hints: [reasoning_heavy, precision_critical]
+      rationale: >
+        This decision either spends a remediation cycle unnecessarily or lets a broken
+        release through; both errors are costly and the inputs are genuinely ambiguous.
+    estimate: { effort: s, cost_usd: 0.6 }
+
+  remediate_gaps:
+    type: task
+    title: Remediate the issues blocking release
+    description: >
+      Fix everything named in the failing-check list and in the decision's reasoning. Make
+      the smallest change that resolves each item. Re-run the affected checks yourself
+      before declaring done.
+    inputs:
+      failing:
+        type: array
+        description: The checks that failed.
+        from: nodes.verify_quality.outputs.failing_checks
+      reasoning:
+        type: text
+        description: Why the release was judged not ready.
+        from: nodes.release_readiness.outputs.reasoning
+    outputs:
+      fixes:
+        type: file_set
+        description: Files changed during remediation.
+    intelligence:
+      tier: advanced
+      hints: [code_generation, reasoning_heavy]
+      escalate_to: frontier
+    requirements:
+      tools: [file_read, file_search, file_write, shell_exec]
+      permissions:
+        - fs:read:**
+        - fs:write:src/**
+        - fs:write:tests/**
+        - fs:write:docs/**
+        - shell:exec:pytest*
+        - shell:exec:ruff*
+        - shell:exec:mypy*
+      workspace: read_write
+    constraints:
+      max_agent_steps: 60
+      max_cost_usd: 6.0
+      concurrency_group: source_tree
+    failure:
+      retry:
+        max_attempts: 2
+        retry_on: [transient, tool_error, criteria_failed]
+        escalate_intelligence: true
+      fallback:
+        - strategy: human_takeover
+          description: A maintainer fixes the remaining issues by hand.
+      escalation:
+        to: human
+        roles: [maintainer]
+        include: [failed_criteria, transcript]
+      on_exhausted: escalate
+    success:
+      summary: The full quality gate now passes.
+      evaluation_order: cheapest_first
+      criteria:
+        - id: lint_clean
+          kind: command
+          description: Ruff reports no violations.
+          run: ruff check src tests
+          timeout_seconds: 180
+        - id: types_clean
+          kind: command
+          description: mypy reports no errors.
+          run: mypy src
+          timeout_seconds: 600
+        - id: suite_passes
+          kind: command
+          description: The full test suite passes.
+          run: pytest -q
+          timeout_seconds: 900
+    estimate: { effort: l, cost_usd: 6.0 }
+
+  prepare_release:
+    type: task
+    title: Prepare the release artifacts
+    description: >
+      Set the version to the target version, write the changelog entry for v1.0 from the
+      audit and the design document, build the source distribution and wheel, and verify
+      the built artifacts install into a clean environment. Do not publish anything.
+    join: any
+    inputs:
+      version:
+        type: string
+        description: The version to release.
+        from: params.target_version
+      design:
+        type: markdown
+        description: The API design, as source material for the changelog.
+        from: nodes.define_public_api.outputs.design_doc
+      audit:
+        type: markdown
+        description: The original audit, for the "what changed" framing.
+        from: nodes.audit_codebase.outputs.audit
+    outputs:
+      artifacts:
+        type: file_set
+        description: The built sdist and wheel.
+        path_hint: dist/
+      release_notes:
+        type: markdown
+        description: The v1.0 changelog entry.
+        path_hint: CHANGELOG.md
+    intelligence:
+      tier: standard
+      hints: [tool_use_heavy]
+    requirements:
+      tools: [file_read, file_write, shell_exec]
+      permissions:
+        - fs:read:**
+        - fs:write:**
+        - shell:exec:python*
+        - shell:exec:pip*
+      workspace: read_write
+      network: none
+    constraints:
+      max_cost_usd: 2.0
+      concurrency_group: source_tree
+    success:
+      summary: Installable artifacts exist for the target version.
+      criteria:
+        - id: artifacts_built
+          kind: file_exists
+          description: A wheel was built.
+          path: dist/*.whl
+          min_bytes: 1000
+        - id: clean_install
+          kind: command
+          description: The built wheel installs and imports in a clean virtual environment.
+          run: python scripts/verify_wheel.py
+          expect_exit_code: 0
+          timeout_seconds: 600
+        - id: version_correct
+          kind: command
+          description: The packaged version matches the requested target version.
+          run: python -c "import importlib.metadata as m, sys; sys.exit(0)"
+          expect_exit_code: 0
+          severity: advisory
+    estimate: { effort: m, cost_usd: 1.5 }
+
+  publish_approval:
+    type: gate
+    title: Approve publication
+    description: >
+      A release manager gives the final go-ahead to push v1.0 to the package index. This
+      is the last reversible moment in the graph.
+    depends_on: [prepare_release]
+    gate:
+      mode: approve
+      roles: [release-manager, maintainer]
+      prompt: |
+        Publish version ${{ params.target_version }} to ${{ params.package_index }}?
+
+        This cannot be undone: package indexes do not allow re-uploading a version.
+      present:
+        - nodes.prepare_release.outputs.release_notes
+        - nodes.verify_quality.outputs.report
+      timeout_seconds: 259200
+      on_timeout: hold
+      on_reject: fail
+    estimate: { effort: xs }
+
+  publish:
+    type: task
+    title: Publish v1.0 to the package index
+    description: >
+      Upload the built artifacts to the configured package index using the injected token,
+      then verify the published version is installable from the index. Upload exactly the
+      artifacts already built; do not rebuild.
+    depends_on: [publish_approval]
+    inputs:
+      artifacts:
+        type: file_set
+        description: The artifacts to upload.
+        from: nodes.prepare_release.outputs.artifacts
+      index:
+        type: string
+        description: Target package index.
+        from: params.package_index
+    outputs:
+      published_url:
+        type: reference
+        description: URL of the published release on the index.
+    intelligence:
+      tier: minimal
+      hints: [tool_use_heavy, precision_critical]
+      rationale: A fixed, well-documented upload procedure. The risk here is permissions, not reasoning.
+    requirements:
+      tools: [file_read, shell_exec]
+      permissions:
+        - fs:read:dist/**
+        - shell:exec:twine*
+        - net:fetch:https://upload.pypi.org
+        - net:fetch:https://test.pypi.org
+      secrets: [package_index_token]
+      network: restricted
+      workspace: read_only
+    constraints:
+      max_agent_steps: 8
+      max_wall_clock_seconds: 900
+      determinism: reproducible
+    human:
+      - id: pre_upload
+        at: before_side_effects
+        mode: approve
+        required: true
+        prompt: "About to upload to ${{ params.package_index }}. This is irreversible. Proceed?"
+        roles: [release-manager]
+        timeout_seconds: 3600
+        on_timeout: fail
+    failure:
+      retry:
+        max_attempts: 3
+        backoff: exponential
+        initial_delay_seconds: 10
+        retry_on: [transient]
+        feedback: failure_summary
+      escalation:
+        to: human
+        roles: [release-manager]
+        message: "Publication of ${{ params.target_version }} failed."
+        include: [diagnostics, transcript]
+      on_exhausted: fail
+    success:
+      summary: The version is live on the index and installable.
+      criteria:
+        - id: installable_from_index
+          kind: command
+          description: The published version installs from the index into a clean environment.
+          run: python scripts/verify_published.py
+          expect_exit_code: 0
+          timeout_seconds: 900
+        - id: url_recorded
+          kind: artifact_present
+          description: The published URL was captured.
+          output: published_url
+    estimate: { effort: s, cost_usd: 0.3 }
+
+edges:
+  - from: release_readiness
+    to: remediate_gaps
+    kind: conditional
+    when: nodes.release_readiness.outputs.decision == "needs_remediation"
+    label: needs work
+
+  - from: release_readiness
+    to: prepare_release
+    kind: conditional
+    when: nodes.release_readiness.outputs.decision == "ready_to_release"
+    label: ready
+
+  - from: remediate_gaps
+    to: prepare_release
+    kind: sequence
+    label: after remediation
+
+outputs:
+  published_url:
+    type: reference
+    description: Where v1.0 now lives on the package index.
+    from: nodes.publish.outputs.published_url
+  release_notes:
+    type: markdown
+    description: The v1.0 changelog entry.
+    from: nodes.prepare_release.outputs.release_notes
+  api_design:
+    type: markdown
+    description: The approved public API design, retained as the record of the decision.
+    from: nodes.define_public_api.outputs.design_doc
+  quality_report:
+    type: markdown
+    description: The final quality report.
+    from: nodes.verify_quality.outputs.report
+  quickstart:
+    type: markdown
+    description: The published quickstart page.
+    from: nodes.write_documentation.outputs.quickstart
+  api_reference:
+    type: file_set
+    description: The published reference pages.
+    from: nodes.write_documentation.outputs.api_reference
+  test_files:
+    type: file_set
+    description: The v1.0 test suite.
+    from: nodes.write_test_suite.outputs.test_files
+  changed_source:
+    type: file_set
+    description: Source files changed to implement the v1.0 API.
+    from: nodes.implement_api.outputs.changed_files
+  implementation_notes:
+    type: markdown
+    description: Deviations from the design, if the implementer recorded any.
+    required: false
+    from: nodes.implement_api.outputs.implementation_notes
+  remediation_diff:
+    type: file_set
+    description: Files changed during remediation. Absent when no remediation was needed.
+    required: false
+    from: nodes.remediate_gaps.outputs.fixes
+
+success:
+  summary: v1.0 is published, installable, documented, and covered by a passing test suite.
+  mode: all
+  criteria:
+    - id: published
+      kind: expression
+      description: A published URL was recorded.
+      expr: len(outputs.published_url) > 0
+    - id: suite_green
+      kind: command
+      description: The full test suite passes against the released tree.
+      run: pytest -q
+      expect_exit_code: 0
+      timeout_seconds: 900
+    - id: docs_present
+      kind: file_exists
+      description: The quickstart page shipped.
+      path: docs/quickstart.md
+      min_bytes: 800
+    - id: maintainer_signoff
+      kind: human
+      description: A maintainer confirms the release is complete and correct.
+      prompt: "v1.0 is published. Confirm the release is complete and the docs are live."
+      roles: [maintainer]
+
+metadata:
+  example_of: canonical full-feature graph
+  see_also:
+    - examples/library-v1-release.agraph.json

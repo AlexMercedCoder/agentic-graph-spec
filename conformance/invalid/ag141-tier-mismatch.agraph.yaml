@@ -1,0 +1,15 @@
+# EXPECT: AG141
+# tier and level are two spellings of one value and must agree.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag141-tier-mismatch
+title: Tier and level disagree
+objective: Demonstrate intelligence tier consistency validation.
+entrypoints: [start]
+nodes:
+  start:
+    title: Start
+    description: Entry node.
+    intelligence:
+      tier: standard
+      level: 4

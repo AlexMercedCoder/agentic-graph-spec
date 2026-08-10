@@ -1,0 +1,1299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/AlexMercedCoder/agentic-graph-spec/main/schema/agentic-graph-1.0.schema.json",
+  "title": "Agentic Graph Specification (AGS) 1.0",
+  "description": "Canonical data model for an Agentic Graph: a directed acyclic graph whose nodes are agentic loops (tasks) and whose edges are control-flow dependencies. The same document may be written in JSON or YAML; this schema is the single normative shape for both.",
+  "type": "object",
+  "required": ["ags_version", "kind", "id", "title", "objective", "entrypoints", "nodes"],
+  "additionalProperties": false,
+  "patternProperties": {
+    "^x-": {
+      "$comment": "Reserved for implementation-specific extensions. Harnesses MUST preserve and MAY ignore."
+    }
+  },
+  "properties": {
+    "$schema": { "type": "string", "format": "uri-reference" },
+
+    "ags_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$",
+      "description": "Version of the Agentic Graph Specification this document targets. MAJOR.MINOR only."
+    },
+    "kind": {
+      "const": "AgenticGraph",
+      "description": "Document discriminator. Reserved so future AGS document kinds can share the media type."
+    },
+    "id": {
+      "$ref": "#/$defs/graph_id",
+      "description": "Stable, globally meaningful identifier for this graph (slug or reverse-DNS)."
+    },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The single top-level goal the whole graph exists to accomplish, in one paragraph."
+    },
+    "description": { "type": "string" },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)*$",
+      "description": "Author-controlled semantic version of THIS document (independent of ags_version)."
+    },
+    "requires_conformance": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "default": 1,
+      "description": "Minimum AGS conformance level a harness must implement to run this graph."
+    },
+    "authors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "role": { "type": "string" }
+        }
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "labels": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 64 },
+      "uniqueItems": true
+    },
+
+    "params": {
+      "type": "object",
+      "description": "Typed invocation surface. Values are supplied by the caller at run time and are readable as params.<name>.",
+      "propertyNames": { "$ref": "#/$defs/binding_name" },
+      "additionalProperties": { "$ref": "#/$defs/param_spec" }
+    },
+    "context": {
+      "type": "object",
+      "description": "Shared, read-only background knowledge available to every node as context.<key>. Free-form JSON values.",
+      "propertyNames": { "$ref": "#/$defs/binding_name" }
+    },
+    "attachments": {
+      "type": "array",
+      "description": "Shared reference material (files, URLs) that nodes may pull into their context.",
+      "items": { "$ref": "#/$defs/attachment" }
+    },
+    "secrets": {
+      "type": "array",
+      "description": "Names of secrets the graph expects the harness to provide. Secret VALUES never appear in a graph document and MUST NOT be referenced from expressions.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": { "$ref": "#/$defs/binding_name" },
+          "description": { "type": "string" },
+          "required": { "type": "boolean", "default": true }
+        }
+      }
+    },
+
+    "entrypoints": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/node_id" },
+      "description": "Node ids that become ready when the run starts."
+    },
+
+    "defaults": {
+      "$ref": "#/$defs/node_defaults",
+      "description": "Node-level defaults shallow-merged into every node that does not set the corresponding block."
+    },
+
+    "nodes": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Map of node id to node definition. Keys are the node ids; this guarantees id uniqueness.",
+      "propertyNames": { "$ref": "#/$defs/node_id" },
+      "additionalProperties": { "$ref": "#/$defs/node" }
+    },
+
+    "edges": {
+      "type": "array",
+      "description": "Explicit control-flow edges. Combined with the desugaring of every node's depends_on to form the effective edge set.",
+      "items": { "$ref": "#/$defs/edge" }
+    },
+
+    "subgraphs": {
+      "type": "object",
+      "description": "Named, reusable graph fragments local to this document, referenced by subgraph nodes via subgraph.use.",
+      "propertyNames": { "$ref": "#/$defs/binding_name" },
+      "additionalProperties": { "$ref": "#/$defs/graph_fragment" }
+    },
+
+    "constraints": { "$ref": "#/$defs/graph_constraints" },
+    "policy": { "$ref": "#/$defs/graph_policy" },
+
+    "outputs": {
+      "type": "object",
+      "description": "Deliverables of the whole graph, bound from node outputs.",
+      "propertyNames": { "$ref": "#/$defs/binding_name" },
+      "additionalProperties": { "$ref": "#/$defs/graph_output_spec" }
+    },
+    "success": {
+      "$ref": "#/$defs/success_block",
+      "description": "Acceptance criteria for the graph as a whole, evaluated after all reachable nodes reach a terminal state."
+    },
+
+    "metadata": {
+      "type": "object",
+      "description": "Free-form, non-normative annotations."
+    }
+  },
+
+  "$defs": {
+    "graph_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$"
+    },
+    "node_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$",
+      "description": "Lowercase kebab/snake identifier, 1-64 characters."
+    },
+    "binding_name": {
+      "type": "string",
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9_]{0,62}$",
+      "description": "Identifier usable as a dotted path segment in an AGX expression."
+    },
+    "expression": {
+      "type": "string",
+      "minLength": 1,
+      "description": "An AGX expression. The entire string is the expression; no ${{ }} wrapper. See docs/expressions.md."
+    },
+    "template": {
+      "type": "string",
+      "description": "Text that may embed AGX expressions using ${{ ... }} interpolation."
+    },
+    "duration_seconds": { "type": "number", "exclusiveMinimum": 0 },
+
+    "attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/$defs/binding_name" },
+        "description": { "type": "string" },
+        "path": { "type": "string", "description": "Workspace-relative path." },
+        "uri": { "type": "string", "format": "uri" },
+        "media_type": { "type": "string" },
+        "inline": { "type": "string", "description": "Literal content, for small attachments." }
+      },
+      "anyOf": [
+        { "required": ["path"] },
+        { "required": ["uri"] },
+        { "required": ["inline"] }
+      ]
+    },
+
+    "value_type": {
+      "type": "string",
+      "enum": [
+        "string", "text", "markdown", "number", "integer", "boolean",
+        "object", "array", "json", "file", "file_set", "directory",
+        "artifact", "reference", "any"
+      ],
+      "description": "Logical type of an input, output, or parameter."
+    },
+
+    "param_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "description"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "type": { "$ref": "#/$defs/value_type" },
+        "description": { "type": "string", "minLength": 1 },
+        "required": { "type": "boolean", "default": true },
+        "default": {},
+        "enum": { "type": "array", "minItems": 1 },
+        "schema": { "type": "object", "description": "Inline JSON Schema constraining the value." },
+        "example": {}
+      }
+    },
+
+    "input_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "description"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "type": { "$ref": "#/$defs/value_type" },
+        "description": { "type": "string", "minLength": 1 },
+        "required": { "type": "boolean", "default": true },
+        "from": {
+          "$ref": "#/$defs/expression",
+          "description": "AGX expression producing the value, e.g. nodes.design.outputs.design_doc."
+        },
+        "template": {
+          "$ref": "#/$defs/template",
+          "description": "Alternative to `from`: interpolated text. Mutually exclusive with `from` and `value`."
+        },
+        "value": { "description": "Literal value. Mutually exclusive with `from` and `template`." },
+        "default": { "description": "Used when the resolved value is absent and required is false." },
+        "schema": { "type": "object" },
+        "media_type": { "type": "string" },
+        "redact": {
+          "type": "boolean",
+          "default": false,
+          "description": "Harness SHOULD omit this value from logs, traces, and run records."
+        }
+      },
+      "not": {
+        "anyOf": [
+          { "required": ["from", "template"] },
+          { "required": ["from", "value"] },
+          { "required": ["template", "value"] }
+        ]
+      }
+    },
+
+    "output_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "description"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "type": { "$ref": "#/$defs/value_type" },
+        "description": { "type": "string", "minLength": 1 },
+        "required": {
+          "type": "boolean",
+          "default": true,
+          "description": "If true, the node cannot succeed unless this output is produced."
+        },
+        "path_hint": {
+          "type": "string",
+          "description": "Suggested workspace-relative location for file/artifact outputs."
+        },
+        "schema": { "type": "object" },
+        "media_type": { "type": "string" },
+        "redact": { "type": "boolean", "default": false },
+        "example": {}
+      }
+    },
+
+    "graph_output_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "description", "from"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "type": { "$ref": "#/$defs/value_type" },
+        "description": { "type": "string", "minLength": 1 },
+        "from": { "$ref": "#/$defs/expression" },
+        "required": { "type": "boolean", "default": true },
+        "schema": { "type": "object" },
+        "media_type": { "type": "string" }
+      }
+    },
+
+    "intelligence": {
+      "type": "object",
+      "description": "Normalized capability demand for the node, used by a harness to route to an appropriately powerful model.",
+      "additionalProperties": false,
+      "required": ["tier"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "tier": {
+          "type": "string",
+          "enum": ["minimal", "standard", "advanced", "frontier"],
+          "description": "Named capability tier. Ordered minimal < standard < advanced < frontier."
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Numeric mirror of tier: 1=minimal, 2=standard, 3=advanced, 4=frontier. MUST agree with tier when both are present."
+        },
+        "hints": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "reasoning_heavy",
+              "long_context",
+              "tool_use_heavy",
+              "code_generation",
+              "code_comprehension",
+              "structured_output",
+              "creative",
+              "precision_critical",
+              "adversarial_review",
+              "multimodal",
+              "multilingual",
+              "fast_iteration",
+              "low_cost",
+              "low_latency"
+            ]
+          },
+          "description": "Non-ordered routing hints. Advisory: a harness MAY use them to pick among models that already satisfy the tier."
+        },
+        "min_context_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Hard floor on usable context window. A harness MUST NOT route to a model below this."
+        },
+        "allow_downgrade": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, a harness that cannot satisfy the tier MAY route to the closest lower tier instead of failing."
+        },
+        "escalate_to": {
+          "type": "string",
+          "enum": ["minimal", "standard", "advanced", "frontier"],
+          "description": "Tier to route to on retry after a failure. MUST be >= tier."
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Why this node demands this tier. Strongly recommended for advanced/frontier."
+        }
+      }
+    },
+
+    "requirements": {
+      "type": "object",
+      "description": "Capabilities the node needs before it can run. A harness MUST refuse to start a node whose non-optional requirements it cannot satisfy.",
+      "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tool_requirement" },
+          "description": "Logical tool capabilities, not vendor tool names."
+        },
+        "permissions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/permission" },
+          "uniqueItems": true
+        },
+        "mcp_servers": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "skills": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true,
+          "description": "Named agent skills/playbooks the node expects to be loaded."
+        },
+        "environment": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/binding_name" },
+          "uniqueItems": true,
+          "description": "Environment variable names the node may read. Only declared names are visible as env.<name>."
+        },
+        "secrets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/binding_name" },
+          "uniqueItems": true,
+          "description": "Names from the graph-level secrets list that must be injected into this node's execution environment."
+        },
+        "network": {
+          "type": "string",
+          "enum": ["none", "restricted", "full"],
+          "default": "none",
+          "description": "restricted means only hosts implied by declared permissions."
+        },
+        "workspace": {
+          "type": "string",
+          "enum": ["none", "read_only", "read_write"],
+          "default": "read_only"
+        }
+      }
+    },
+
+    "tool_requirement": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "optional": { "type": "boolean", "default": false },
+            "description": { "type": "string" },
+            "alternatives": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "description": "Acceptable substitutes if `name` is unavailable."
+            }
+          }
+        }
+      ]
+    },
+
+    "permission": {
+      "type": "string",
+      "minLength": 3,
+      "pattern": "^(fs|net|shell|git|process|secret|mcp|human|custom):[a-z_]+(:.+)?$",
+      "description": "Structured permission of the form scope:action[:target], e.g. fs:write:src/**, net:fetch:https://api.github.com, shell:exec:pytest*, git:commit."
+    },
+
+    "constraints": {
+      "type": "object",
+      "description": "Per-node resource and determinism envelope. A harness at conformance level 2+ MUST enforce every limit it understands.",
+      "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "max_input_tokens": { "type": "integer", "minimum": 1 },
+        "max_output_tokens": { "type": "integer", "minimum": 1 },
+        "max_total_tokens": { "type": "integer", "minimum": 1 },
+        "max_cost_usd": { "type": "number", "exclusiveMinimum": 0 },
+        "max_wall_clock_seconds": { "$ref": "#/$defs/duration_seconds" },
+        "max_tool_calls": { "type": "integer", "minimum": 0 },
+        "max_agent_steps": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum iterations of the agentic loop inside this single node."
+        },
+        "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+        "top_p": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "seed": { "type": "integer" },
+        "determinism": {
+          "type": "string",
+          "enum": ["strict", "reproducible", "relaxed"],
+          "default": "relaxed",
+          "description": "strict: same inputs must yield byte-identical outputs (temperature 0 and a seed are implied). reproducible: same inputs should yield equivalent outputs. relaxed: no guarantee."
+        },
+        "isolation": {
+          "type": "string",
+          "enum": ["shared", "worktree", "sandbox", "container"],
+          "default": "shared",
+          "description": "Execution environment isolation for side-effecting work."
+        },
+        "concurrency_group": {
+          "type": "string",
+          "description": "Nodes sharing a group never run concurrently."
+        },
+        "deadline": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Absolute wall-clock deadline for this node."
+        }
+      }
+    },
+
+    "graph_constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "max_total_tokens": { "type": "integer", "minimum": 1 },
+        "max_cost_usd": { "type": "number", "exclusiveMinimum": 0 },
+        "max_wall_clock_seconds": { "$ref": "#/$defs/duration_seconds" },
+        "max_parallel_nodes": { "type": "integer", "minimum": 1, "default": 1 },
+        "max_node_executions": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Runaway guard: total node executions across the run, including retries and loop iterations."
+        },
+        "max_subgraph_depth": { "type": "integer", "minimum": 1, "default": 5 },
+        "deadline": { "type": "string", "format": "date-time" }
+      }
+    },
+
+    "graph_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "on_expression_error": {
+          "type": "string",
+          "enum": ["fail", "false"],
+          "default": "fail",
+          "description": "fail: an expression evaluation error fails the run. false: the expression is treated as false and a diagnostic is recorded."
+        },
+        "on_node_failure": {
+          "type": "string",
+          "enum": ["halt", "isolate", "continue"],
+          "default": "isolate",
+          "description": "halt: stop the whole run. isolate: skip only the failed node's dependents. continue: also attempt dependents whose join permits it."
+        },
+        "on_unknown_field": {
+          "type": "string",
+          "enum": ["error", "warn"],
+          "default": "error",
+          "description": "Behavior for non x- prefixed fields the harness does not recognize."
+        },
+        "default_human_timeout_seconds": { "$ref": "#/$defs/duration_seconds" },
+        "on_human_timeout": {
+          "type": "string",
+          "enum": ["fail", "hold", "escalate", "approve"],
+          "default": "hold"
+        },
+        "checkpointing": {
+          "type": "string",
+          "enum": ["none", "per_node", "continuous"],
+          "default": "per_node",
+          "description": "How often the harness persists run state so a run can be resumed."
+        },
+        "resume": {
+          "type": "string",
+          "enum": ["restart", "resume_incomplete", "resume_failed"],
+          "default": "resume_incomplete"
+        },
+        "record_run": {
+          "type": "boolean",
+          "default": true,
+          "description": "Emit an AGS Run Record conforming to agentic-graph-run-1.0.schema.json."
+        }
+      }
+    },
+
+    "retry_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Total attempts including the first. 1 means no retry."
+        },
+        "backoff": {
+          "type": "string",
+          "enum": ["none", "fixed", "linear", "exponential"],
+          "default": "exponential"
+        },
+        "initial_delay_seconds": { "type": "number", "minimum": 0, "default": 2 },
+        "max_delay_seconds": { "type": "number", "minimum": 0, "default": 60 },
+        "jitter": { "type": "boolean", "default": true },
+        "retry_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "default": ["transient", "tool_error", "criteria_failed"],
+          "items": {
+            "type": "string",
+            "enum": [
+              "transient",
+              "model_error",
+              "tool_error",
+              "timeout",
+              "budget_exceeded",
+              "criteria_failed",
+              "output_missing",
+              "validation_error",
+              "permission_denied",
+              "any"
+            ]
+          }
+        },
+        "feedback": {
+          "type": "string",
+          "enum": ["none", "failure_summary", "failed_criteria", "full_transcript"],
+          "default": "failed_criteria",
+          "description": "What the harness injects into the retry attempt's context."
+        },
+        "escalate_intelligence": {
+          "type": "boolean",
+          "default": false,
+          "description": "On each retry, route using intelligence.escalate_to if set, otherwise the next higher tier."
+        }
+      }
+    },
+
+    "fallback_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["alternate_node", "degrade_outputs", "relax_criteria", "human_takeover", "skip"],
+          "description": "alternate_node: run `node` instead. degrade_outputs: accept the partial outputs listed in `outputs`. relax_criteria: re-evaluate with `criteria` demoted to advisory. human_takeover: hand the node to a person. skip: mark the node skipped and continue."
+        },
+        "node": { "$ref": "#/$defs/node_id" },
+        "outputs": { "type": "array", "items": { "$ref": "#/$defs/binding_name" }, "uniqueItems": true },
+        "criteria": { "type": "array", "items": { "$ref": "#/$defs/binding_name" }, "uniqueItems": true },
+        "when": { "$ref": "#/$defs/expression" },
+        "description": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "strategy": { "const": "alternate_node" } }, "required": ["strategy"] },
+          "then": { "required": ["node"] }
+        },
+        {
+          "if": { "properties": { "strategy": { "const": "degrade_outputs" } }, "required": ["strategy"] },
+          "then": { "required": ["outputs"] }
+        },
+        {
+          "if": { "properties": { "strategy": { "const": "relax_criteria" } }, "required": ["strategy"] },
+          "then": { "required": ["criteria"] }
+        }
+      ]
+    },
+
+    "escalation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["to"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "to": {
+          "type": "string",
+          "enum": ["human", "node", "supervisor", "external"],
+          "description": "supervisor means the harness's own planner/orchestrator agent."
+        },
+        "node": { "$ref": "#/$defs/node_id" },
+        "roles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "channel": { "type": "string", "description": "Harness-defined notification channel identifier." },
+        "message": { "$ref": "#/$defs/template" },
+        "include": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["inputs", "outputs", "failed_criteria", "transcript", "diagnostics"] },
+          "default": ["failed_criteria", "diagnostics"]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "to": { "const": "node" } }, "required": ["to"] },
+          "then": { "required": ["node"] }
+        }
+      ]
+    },
+
+    "failure_policy": {
+      "type": "object",
+      "description": "What happens when a node attempt does not succeed.",
+      "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "retry": { "$ref": "#/$defs/retry_policy" },
+        "fallback": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fallback_step" },
+          "description": "Ordered fallbacks attempted after retries are exhausted."
+        },
+        "escalation": { "$ref": "#/$defs/escalation" },
+        "on_exhausted": {
+          "type": "string",
+          "enum": ["fail", "skip", "escalate", "succeed_degraded"],
+          "default": "fail",
+          "description": "Terminal disposition once retries and fallbacks are exhausted."
+        },
+        "compensation": {
+          "$ref": "#/$defs/node_id",
+          "description": "Node to run to undo this node's side effects when the run halts after it succeeded."
+        },
+        "timeout_action": {
+          "type": "string",
+          "enum": ["fail", "retry", "escalate", "partial"],
+          "default": "fail"
+        }
+      }
+    },
+
+    "human_checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "mode"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "id": { "$ref": "#/$defs/binding_name" },
+        "at": {
+          "type": "string",
+          "enum": [
+            "before_start",
+            "before_side_effects",
+            "after_outputs",
+            "on_criteria_failure",
+            "on_failure",
+            "on_escalation"
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["approve", "review", "input", "notify"],
+          "description": "approve: blocking yes/no. review: blocking, may edit outputs. input: blocking, supplies values. notify: non-blocking."
+        },
+        "prompt": { "$ref": "#/$defs/template" },
+        "required": { "type": "boolean", "default": true },
+        "roles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "collect": {
+          "type": "object",
+          "description": "For mode=input: values to collect, keyed by name.",
+          "propertyNames": { "$ref": "#/$defs/binding_name" },
+          "additionalProperties": { "$ref": "#/$defs/param_spec" }
+        },
+        "timeout_seconds": { "$ref": "#/$defs/duration_seconds" },
+        "on_timeout": {
+          "type": "string",
+          "enum": ["fail", "hold", "escalate", "approve"]
+        },
+        "when": { "$ref": "#/$defs/expression" }
+      }
+    },
+
+    "criterion": {
+      "type": "object",
+      "description": "One acceptance criterion. Every criterion carries a human-readable description; machine-checkable kinds also carry an executable check.",
+      "additionalProperties": false,
+      "required": ["id", "kind", "description"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "id": { "$ref": "#/$defs/binding_name" },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "command",
+            "file_exists",
+            "artifact_present",
+            "json_schema",
+            "regex",
+            "expression",
+            "llm_judge",
+            "human",
+            "external"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable statement of what must be true. Required for every criterion, including machine-checkable ones."
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["required", "advisory"],
+          "default": "required",
+          "description": "advisory criteria are evaluated and recorded but never gate progression."
+        },
+        "record_evidence": { "type": "boolean", "default": true },
+        "timeout_seconds": { "$ref": "#/$defs/duration_seconds" },
+
+        "run": { "type": "string", "description": "kind=command: the command line to execute." },
+        "cwd": { "type": "string", "description": "kind=command: working directory, workspace-relative." },
+        "expect_exit_code": { "type": "integer", "default": 0 },
+        "expect_stdout_matches": { "type": "string", "description": "kind=command: regular expression the stdout must match." },
+
+        "path": { "type": "string", "description": "kind=file_exists: workspace-relative path or glob." },
+        "min_bytes": { "type": "integer", "minimum": 0 },
+
+        "output": { "$ref": "#/$defs/binding_name", "description": "kind=artifact_present|json_schema|regex: the declared output this criterion inspects." },
+
+        "schema": { "type": "object", "description": "kind=json_schema: inline JSON Schema." },
+        "schema_ref": { "type": "string", "description": "kind=json_schema: URI or workspace path to a JSON Schema." },
+
+        "target": { "$ref": "#/$defs/expression", "description": "kind=regex: expression producing the text to match. Defaults to the value of `output`." },
+        "pattern": { "type": "string", "description": "kind=regex: regular expression." },
+        "flags": { "type": "string", "pattern": "^[imsx]*$", "default": "" },
+        "negate": { "type": "boolean", "default": false, "description": "kind=regex: pass when the pattern does NOT match." },
+
+        "expr": { "$ref": "#/$defs/expression", "description": "kind=expression: must evaluate to boolean true." },
+
+        "rubric": { "$ref": "#/$defs/template", "description": "kind=llm_judge: what the judge should assess, in prose." },
+        "judge_intelligence": { "$ref": "#/$defs/intelligence" },
+        "threshold": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.8, "description": "kind=llm_judge: minimum score to pass." },
+        "samples": { "type": "integer", "minimum": 1, "default": 1, "description": "kind=llm_judge: independent judgements to take; the median score is used." },
+        "inputs": { "type": "array", "items": { "$ref": "#/$defs/expression" }, "description": "kind=llm_judge: material to place in front of the judge." },
+
+        "prompt": { "$ref": "#/$defs/template", "description": "kind=human: what the reviewer is asked to confirm." },
+        "roles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+
+        "check": { "type": "string", "description": "kind=external: name of a harness-registered checker." },
+        "params": { "type": "object", "description": "kind=external: arguments passed to the checker." }
+      },
+      "allOf": [
+        { "if": { "properties": { "kind": { "const": "command" } }, "required": ["kind"] }, "then": { "required": ["run"] } },
+        { "if": { "properties": { "kind": { "const": "file_exists" } }, "required": ["kind"] }, "then": { "required": ["path"] } },
+        { "if": { "properties": { "kind": { "const": "artifact_present" } }, "required": ["kind"] }, "then": { "required": ["output"] } },
+        {
+          "if": { "properties": { "kind": { "const": "json_schema" } }, "required": ["kind"] },
+          "then": { "required": ["output"], "anyOf": [{ "required": ["schema"] }, { "required": ["schema_ref"] }] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "regex" } }, "required": ["kind"] },
+          "then": { "required": ["pattern"], "anyOf": [{ "required": ["output"] }, { "required": ["target"] }] }
+        },
+        { "if": { "properties": { "kind": { "const": "expression" } }, "required": ["kind"] }, "then": { "required": ["expr"] } },
+        { "if": { "properties": { "kind": { "const": "llm_judge" } }, "required": ["kind"] }, "then": { "required": ["rubric"] } },
+        { "if": { "properties": { "kind": { "const": "human" } }, "required": ["kind"] }, "then": { "required": ["prompt"] } },
+        { "if": { "properties": { "kind": { "const": "external" } }, "required": ["kind"] }, "then": { "required": ["check"] } }
+      ]
+    },
+
+    "success_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criteria"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "One-sentence human definition of done. Strongly recommended."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["all", "any", "n_of"],
+          "default": "all",
+          "description": "How required criteria combine."
+        },
+        "count": { "type": "integer", "minimum": 1, "description": "Required when mode=n_of." },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/criterion" }
+        },
+        "evaluation_order": {
+          "type": "string",
+          "enum": ["declared", "cheapest_first"],
+          "default": "declared",
+          "description": "cheapest_first lets a harness short-circuit expensive judges after a cheap criterion already failed."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "n_of" } }, "required": ["mode"] },
+          "then": { "required": ["count"] }
+        }
+      ]
+    },
+
+    "node_defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "intelligence": { "$ref": "#/$defs/intelligence" },
+        "requirements": { "$ref": "#/$defs/requirements" },
+        "constraints": { "$ref": "#/$defs/constraints" },
+        "failure": { "$ref": "#/$defs/failure_policy" },
+        "human": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/human_checkpoint" }
+        },
+        "join": { "type": "string", "enum": ["all", "any", "n_of"] }
+      }
+    },
+
+    "loop_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "max_iterations"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["while", "until", "repeat"],
+          "description": "while: test `condition` BEFORE each iteration. until: run an iteration, then test `condition` and stop when true. repeat: run exactly max_iterations times."
+        },
+        "condition": { "$ref": "#/$defs/expression" },
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "Hard bound. Always required; there are no unbounded loops in AGS."
+        },
+        "on_max_iterations": {
+          "type": "string",
+          "enum": ["fail", "succeed", "escalate"],
+          "default": "fail"
+        },
+        "body": { "$ref": "#/$defs/graph_fragment" },
+        "use": { "$ref": "#/$defs/binding_name", "description": "Name of a fragment in graph.subgraphs to use as the body." },
+        "carry": {
+          "type": "object",
+          "description": "Maps a body output name to the body input name it feeds on the next iteration.",
+          "propertyNames": { "$ref": "#/$defs/binding_name" },
+          "additionalProperties": { "$ref": "#/$defs/binding_name" }
+        },
+        "collect": {
+          "type": "object",
+          "description": "Maps a node output name to an expression evaluated in the final iteration's scope.",
+          "propertyNames": { "$ref": "#/$defs/binding_name" },
+          "additionalProperties": { "$ref": "#/$defs/expression" }
+        }
+      },
+      "oneOf": [{ "required": ["body"] }, { "required": ["use"] }],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "mode": { "enum": ["while", "until"] } },
+            "required": ["mode"]
+          },
+          "then": { "required": ["condition"] }
+        }
+      ]
+    },
+
+    "map_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["over", "as", "max_items"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "over": { "$ref": "#/$defs/expression", "description": "Expression producing an array to fan out over." },
+        "as": { "$ref": "#/$defs/binding_name", "description": "Binding name for the current element inside the body scope." },
+        "index_as": { "$ref": "#/$defs/binding_name", "default": "index" },
+        "max_items": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Hard bound on fan-out width. Always required."
+        },
+        "on_over_limit": { "type": "string", "enum": ["fail", "truncate"], "default": "fail" },
+        "max_parallel": { "type": "integer", "minimum": 1, "default": 1 },
+        "body": { "$ref": "#/$defs/graph_fragment" },
+        "use": { "$ref": "#/$defs/binding_name" },
+        "on_item_failure": {
+          "type": "string",
+          "enum": ["fail_fast", "continue", "threshold"],
+          "default": "fail_fast"
+        },
+        "min_successes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Required when on_item_failure=threshold."
+        },
+        "collect": {
+          "type": "object",
+          "description": "Maps a node output name to an expression evaluated per item; results are gathered into an array in input order.",
+          "propertyNames": { "$ref": "#/$defs/binding_name" },
+          "additionalProperties": { "$ref": "#/$defs/expression" }
+        }
+      },
+      "oneOf": [{ "required": ["body"] }, { "required": ["use"] }],
+      "allOf": [
+        {
+          "if": { "properties": { "on_item_failure": { "const": "threshold" } }, "required": ["on_item_failure"] },
+          "then": { "required": ["min_successes"] }
+        }
+      ]
+    },
+
+    "subgraph_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "use": { "$ref": "#/$defs/binding_name", "description": "Name of a fragment declared in graph.subgraphs." },
+        "inline": { "$ref": "#/$defs/graph_fragment" },
+        "ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["uri"],
+          "properties": {
+            "uri": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Workspace-relative path or absolute URI of another AGS document."
+            },
+            "integrity": {
+              "type": "string",
+              "pattern": "^sha256-[A-Za-z0-9+/=]+$",
+              "description": "Subresource-integrity style digest. REQUIRED by strict harnesses for non-local URIs."
+            },
+            "expected_id": { "$ref": "#/$defs/graph_id" }
+          }
+        },
+        "params": {
+          "type": "object",
+          "description": "Values bound to the child graph's params, as AGX expressions evaluated in the parent scope.",
+          "propertyNames": { "$ref": "#/$defs/binding_name" },
+          "additionalProperties": { "$ref": "#/$defs/expression" }
+        },
+        "context": {
+          "type": "object",
+          "description": "Additional context entries merged into the child scope.",
+          "propertyNames": { "$ref": "#/$defs/binding_name" }
+        },
+        "inherit_context": { "type": "boolean", "default": false },
+        "outputs_from": {
+          "type": "object",
+          "description": "Maps this node's output names to expressions evaluated in the child graph's final scope.",
+          "propertyNames": { "$ref": "#/$defs/binding_name" },
+          "additionalProperties": { "$ref": "#/$defs/expression" }
+        }
+      },
+      "oneOf": [{ "required": ["use"] }, { "required": ["inline"] }, { "required": ["ref"] }]
+    },
+
+    "gate_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["approve", "review", "input", "notify"]
+        },
+        "prompt": { "$ref": "#/$defs/template" },
+        "roles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "present": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/expression" },
+          "description": "Material to show the approver."
+        },
+        "collect": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/binding_name" },
+          "additionalProperties": { "$ref": "#/$defs/param_spec" }
+        },
+        "timeout_seconds": { "$ref": "#/$defs/duration_seconds" },
+        "on_timeout": { "type": "string", "enum": ["fail", "hold", "escalate", "approve"] },
+        "on_reject": {
+          "type": "string",
+          "enum": ["fail", "skip_dependents", "route"],
+          "default": "fail",
+          "description": "route means outgoing conditional edges decide, using gate.decision."
+        }
+      }
+    },
+
+    "decision_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["branches"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "question": {
+          "$ref": "#/$defs/template",
+          "description": "What the decision node must determine. Omit for purely deterministic decisions."
+        },
+        "evaluator": {
+          "type": "string",
+          "enum": ["agent", "expression"],
+          "default": "agent",
+          "description": "agent: a model produces the branch label. expression: the first branch whose `when` is true is selected, with no model call."
+        },
+        "branches": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Enumerated, mutually exclusive outcomes. The selected label is exposed as nodes.<id>.outputs.decision.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "description"],
+            "properties": {
+              "label": { "$ref": "#/$defs/binding_name" },
+              "description": { "type": "string", "minLength": 1 },
+              "when": { "$ref": "#/$defs/expression", "description": "Required when evaluator=expression." }
+            }
+          }
+        },
+        "default_branch": { "$ref": "#/$defs/binding_name" }
+      }
+    },
+
+    "graph_fragment": {
+      "type": "object",
+      "description": "A self-contained set of nodes and edges. Used for loop bodies, map bodies, and inline subgraphs. Node ids are scoped to the fragment.",
+      "additionalProperties": false,
+      "required": ["entrypoints", "nodes"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "params": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/binding_name" },
+          "additionalProperties": { "$ref": "#/$defs/param_spec" }
+        },
+        "entrypoints": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/node_id" }
+        },
+        "nodes": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/node_id" },
+          "additionalProperties": { "$ref": "#/$defs/node" }
+        },
+        "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } },
+        "outputs": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/binding_name" },
+          "additionalProperties": { "$ref": "#/$defs/graph_output_spec" }
+        },
+        "success": { "$ref": "#/$defs/success_block" },
+        "defaults": { "$ref": "#/$defs/node_defaults" }
+      }
+    },
+
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "from": { "$ref": "#/$defs/node_id" },
+        "to": { "$ref": "#/$defs/node_id" },
+        "kind": {
+          "type": "string",
+          "enum": ["sequence", "conditional", "on_failure"],
+          "default": "sequence",
+          "description": "sequence: taken when `from` succeeds. conditional: taken when `from` succeeds AND `when` is true. on_failure: taken when `from` reaches a failed terminal state."
+        },
+        "when": {
+          "$ref": "#/$defs/expression",
+          "description": "Guard expression. REQUIRED for kind=conditional; optional for on_failure; forbidden for sequence."
+        },
+        "label": { "type": "string", "description": "Human-readable edge label, useful for rendering." },
+        "description": { "type": "string" },
+        "carries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/binding_name" },
+          "description": "Documentation-only hint listing which outputs of `from` the `to` node consumes. Data flow is authoritative in inputs.*.from."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "conditional" } }, "required": ["kind"] },
+          "then": { "required": ["when"] }
+        },
+        {
+          "if": {
+            "anyOf": [
+              { "properties": { "kind": { "const": "sequence" } }, "required": ["kind"] },
+              { "not": { "required": ["kind"] } }
+            ]
+          },
+          "then": { "not": { "required": ["when"] } }
+        }
+      ]
+    },
+
+    "node": {
+      "type": "object",
+      "required": ["title", "description"],
+      "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["task", "decision", "gate", "loop", "map", "subgraph"],
+          "default": "task",
+          "description": "task: an agentic loop. decision: produces a branch label. gate: a human checkpoint. loop: bounded iteration over a body fragment. map: bounded fan-out over a collection. subgraph: runs another graph."
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Precise statement of what the node must accomplish, written as an instruction to the agent that will run it."
+        },
+        "rationale": { "type": "string", "description": "Why this node exists in the decomposition." },
+        "instructions": {
+          "$ref": "#/$defs/template",
+          "description": "Optional longer-form guidance appended to `description` when building the node's prompt."
+        },
+        "labels": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+
+        "depends_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/node_id" },
+          "description": "Shorthand for a sequence edge from each listed node to this one."
+        },
+        "join": {
+          "type": "string",
+          "enum": ["all", "any", "n_of"],
+          "default": "all",
+          "description": "How multiple incoming edges combine into readiness."
+        },
+        "join_count": { "type": "integer", "minimum": 1, "description": "Required when join=n_of." },
+
+        "inputs": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/binding_name" },
+          "additionalProperties": { "$ref": "#/$defs/input_spec" }
+        },
+        "outputs": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/binding_name" },
+          "additionalProperties": { "$ref": "#/$defs/output_spec" }
+        },
+
+        "success": { "$ref": "#/$defs/success_block" },
+        "intelligence": { "$ref": "#/$defs/intelligence" },
+        "requirements": { "$ref": "#/$defs/requirements" },
+        "constraints": { "$ref": "#/$defs/constraints" },
+        "failure": { "$ref": "#/$defs/failure_policy" },
+        "human": { "type": "array", "items": { "$ref": "#/$defs/human_checkpoint" } },
+
+        "when": {
+          "$ref": "#/$defs/expression",
+          "description": "Node-level guard. If present and false at readiness time, the node becomes skipped without running."
+        },
+
+        "loop": { "$ref": "#/$defs/loop_block" },
+        "map": { "$ref": "#/$defs/map_block" },
+        "subgraph": { "$ref": "#/$defs/subgraph_block" },
+        "gate": { "$ref": "#/$defs/gate_block" },
+        "decision": { "$ref": "#/$defs/decision_block" },
+
+        "estimate": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Non-binding planning estimates. Useful for scheduling and for showing a user what a graph will cost.",
+          "properties": {
+            "effort": { "type": "string", "enum": ["xs", "s", "m", "l", "xl"] },
+            "tokens": { "type": "integer", "minimum": 0 },
+            "cost_usd": { "type": "number", "minimum": 0 },
+            "wall_clock_seconds": { "type": "number", "minimum": 0 }
+          }
+        },
+        "metadata": { "type": "object" }
+      },
+
+      "allOf": [
+        {
+          "if": { "properties": { "join": { "const": "n_of" } }, "required": ["join"] },
+          "then": { "required": ["join_count"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "loop" } }, "required": ["type"] },
+          "then": { "required": ["loop"] },
+          "else": { "not": { "required": ["loop"] } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "map" } }, "required": ["type"] },
+          "then": { "required": ["map"] },
+          "else": { "not": { "required": ["map"] } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "subgraph" } }, "required": ["type"] },
+          "then": { "required": ["subgraph"] },
+          "else": { "not": { "required": ["subgraph"] } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "gate" } }, "required": ["type"] },
+          "then": { "required": ["gate"] },
+          "else": { "not": { "required": ["gate"] } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "decision" } }, "required": ["type"] },
+          "then": { "required": ["decision"] },
+          "else": { "not": { "required": ["decision"] } }
+        },
+        {
+          "$comment": "Only task, decision, loop, map and subgraph nodes consume model capacity; a gate never does.",
+          "if": { "properties": { "type": { "const": "gate" } }, "required": ["type"] },
+          "then": { "not": { "required": ["intelligence"] } }
+        }
+      ]
+    }
+  }
+}

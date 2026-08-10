@@ -1,0 +1,25 @@
+# EXPECT: AG201
+# A node may only read outputs of its transitive predecessors.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag201-forward-read
+title: Forward output read
+objective: Demonstrate dataflow ordering validation.
+entrypoints: [start]
+nodes:
+  start:
+    title: Start
+    description: Entry node.
+    inputs:
+      borrowed:
+        type: text
+        description: Reads an output from a node that has not run yet.
+        from: nodes.later.outputs.value
+  later:
+    title: Later
+    description: Runs after start, so start cannot read it.
+    depends_on: [start]
+    outputs:
+      value:
+        type: text
+        description: A value produced downstream.

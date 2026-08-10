@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/AlexMercedCoder/agentic-graph-spec/main/schema/agentic-graph-run-1.0.schema.json",
+  "title": "Agentic Graph Run Record 1.0",
+  "description": "Portable record of one execution of an Agentic Graph. Produced by a conformance level 3 harness. Enables auditing, resumption, replay, and cross-harness comparison.",
+  "type": "object",
+  "required": ["ags_version", "kind", "run_id", "graph_id", "status", "started_at", "nodes"],
+  "additionalProperties": false,
+  "patternProperties": { "^x-": {} },
+  "properties": {
+    "ags_version": { "type": "string", "pattern": "^1\\.[0-9]+$" },
+    "kind": { "const": "AgenticGraphRun" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "graph_id": { "type": "string", "minLength": 1 },
+    "graph_version": { "type": "string" },
+    "graph_digest": {
+      "type": "string",
+      "pattern": "^sha256-[A-Za-z0-9+/=]+$",
+      "description": "Digest of the canonical JSON form of the graph document that was executed."
+    },
+    "parent_run_id": { "type": "string", "description": "Set for subgraph runs." },
+    "harness": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "version", "conformance_level"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "conformance_level": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "supported_features": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["running", "succeeded", "failed", "cancelled", "awaiting_human", "partial"]
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" },
+    "params": { "type": "object" },
+    "context": { "type": "object" },
+    "outputs": { "type": "object" },
+    "usage": { "$ref": "#/$defs/usage" },
+    "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } },
+    "graph_success": { "$ref": "#/$defs/criteria_results" },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node_run" }
+    },
+    "edges_taken": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "kind", "active"],
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "kind": { "type": "string", "enum": ["sequence", "conditional", "on_failure"] },
+          "active": { "type": "boolean" },
+          "when_result": { "type": ["boolean", "null"] },
+          "at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "metadata": { "type": "object" }
+  },
+  "$defs": {
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "input_tokens": { "type": "integer", "minimum": 0 },
+        "output_tokens": { "type": "integer", "minimum": 0 },
+        "total_tokens": { "type": "integer", "minimum": 0 },
+        "cost_usd": { "type": "number", "minimum": 0 },
+        "tool_calls": { "type": "integer", "minimum": 0 },
+        "wall_clock_seconds": { "type": "number", "minimum": 0 },
+        "node_executions": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": { "type": "string", "description": "Validation or runtime code, e.g. AG204 or RT031." },
+        "severity": { "type": "string", "enum": ["error", "warning", "info"] },
+        "message": { "type": "string" },
+        "node_id": { "type": "string" },
+        "pointer": { "type": "string", "description": "JSON Pointer into the graph document." },
+        "at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "criterion_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "severity", "passed"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string" },
+        "severity": { "type": "string", "enum": ["required", "advisory"] },
+        "passed": { "type": "boolean" },
+        "score": { "type": "number" },
+        "evidence": { "type": "string", "description": "Command output, matched text, judge reasoning, or reviewer note." },
+        "evidence_truncated": { "type": "boolean" },
+        "evaluated_at": { "type": "string", "format": "date-time" },
+        "duration_seconds": { "type": "number", "minimum": 0 },
+        "error": { "type": "string" }
+      }
+    },
+    "criteria_results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "results"],
+      "properties": {
+        "passed": { "type": "boolean" },
+        "mode": { "type": "string", "enum": ["all", "any", "n_of"] },
+        "results": { "type": "array", "items": { "$ref": "#/$defs/criterion_result" } }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt", "status", "started_at"],
+      "properties": {
+        "attempt": { "type": "integer", "minimum": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["succeeded", "failed", "timeout", "budget_exceeded", "criteria_failed", "cancelled"]
+        },
+        "started_at": { "type": "string", "format": "date-time" },
+        "finished_at": { "type": "string", "format": "date-time" },
+        "routed": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "What the model router actually chose for this attempt.",
+          "properties": {
+            "requested_tier": { "type": "string" },
+            "effective_tier": { "type": "string" },
+            "provider": { "type": "string" },
+            "model": { "type": "string" },
+            "downgraded": { "type": "boolean" },
+            "reason": { "type": "string" }
+          }
+        },
+        "usage": { "$ref": "#/$defs/usage" },
+        "success": { "$ref": "#/$defs/criteria_results" },
+        "error": { "type": "string" },
+        "transcript_ref": { "type": "string", "description": "Opaque pointer to the full agent transcript held by the harness." }
+      }
+    },
+    "node_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "type", "status"],
+      "properties": {
+        "node_id": { "type": "string" },
+        "scope_path": {
+          "type": "string",
+          "description": "Dotted path for nodes inside loop/map/subgraph scopes, e.g. fix_loop[2].run_tests."
+        },
+        "type": { "type": "string", "enum": ["task", "decision", "gate", "loop", "map", "subgraph"] },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "ready", "running", "awaiting_human", "succeeded", "failed", "skipped", "cancelled", "blocked"]
+        },
+        "skip_reason": { "type": "string" },
+        "started_at": { "type": "string", "format": "date-time" },
+        "finished_at": { "type": "string", "format": "date-time" },
+        "inputs": { "type": "object" },
+        "outputs": { "type": "object" },
+        "attempts": { "type": "array", "items": { "$ref": "#/$defs/attempt" } },
+        "fallback_used": { "type": "string" },
+        "escalated": { "type": "boolean" },
+        "human_events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["at_stage", "mode", "outcome"],
+            "properties": {
+              "checkpoint_id": { "type": "string" },
+              "at_stage": { "type": "string" },
+              "mode": { "type": "string", "enum": ["approve", "review", "input", "notify"] },
+              "outcome": { "type": "string", "enum": ["approved", "rejected", "edited", "provided", "notified", "timed_out"] },
+              "actor": { "type": "string" },
+              "note": { "type": "string" },
+              "at": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "decision": { "type": "string", "description": "Selected branch label for decision nodes." },
+        "iterations": { "type": "integer", "minimum": 0, "description": "Completed iterations for loop nodes." },
+        "items": { "type": "integer", "minimum": 0, "description": "Fan-out width actually used for map nodes." },
+        "child_run_id": { "type": "string", "description": "Run id of the child graph for subgraph nodes." },
+        "usage": { "$ref": "#/$defs/usage" }
+      }
+    }
+  }
+}

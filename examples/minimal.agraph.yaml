@@ -1,0 +1,85 @@
+ags_version: "1.0"
+kind: AgenticGraph
+id: examples/minimal
+title: Smallest useful Agentic Graph
+requires_conformance: 1
+
+objective: >
+  Add a CONTRIBUTING.md to a repository that does not have one, and have a maintainer
+  approve it before it lands.
+
+# Everything below this line is the entire graph. This is what a conformance level 1
+# harness has to be able to run: task nodes, a gate, depends_on edges, join: all,
+# command and file_exists criteria, intelligence tiers, and retries.
+
+entrypoints: [draft_contributing]
+
+nodes:
+
+  draft_contributing:
+    type: task
+    title: Draft CONTRIBUTING.md
+    description: >
+      Write a CONTRIBUTING.md covering how to set up the project locally, how to run the
+      tests, the branch and commit-message conventions used in this repository, and how
+      to open a pull request. Infer the conventions from the repository itself rather
+      than inventing them.
+    outputs:
+      contributing:
+        type: file
+        description: The drafted contributor guide.
+        path_hint: CONTRIBUTING.md
+    intelligence:
+      tier: standard
+      hints: [code_comprehension]
+    requirements:
+      tools: [file_read, file_search, file_write]
+      permissions:
+        - fs:read:**
+        - fs:write:CONTRIBUTING.md
+      workspace: read_write
+    constraints:
+      max_agent_steps: 20
+      max_wall_clock_seconds: 900
+    failure:
+      retry:
+        max_attempts: 2
+        retry_on: [transient, criteria_failed]
+      on_exhausted: fail
+    success:
+      summary: A substantive CONTRIBUTING.md exists at the repository root.
+      criteria:
+        - id: file_written
+          kind: file_exists
+          description: CONTRIBUTING.md exists and is more than a stub.
+          path: CONTRIBUTING.md
+          min_bytes: 600
+        - id: markdown_lints
+          kind: command
+          description: The file passes the project's Markdown linter.
+          run: npx --yes markdownlint-cli CONTRIBUTING.md
+          expect_exit_code: 0
+          timeout_seconds: 120
+          severity: advisory
+    estimate: { effort: s, cost_usd: 0.3 }
+
+  maintainer_approval:
+    type: gate
+    title: Maintainer approves the contributor guide
+    description: A maintainer reads the drafted guide and approves or rejects it.
+    depends_on: [draft_contributing]
+    gate:
+      mode: approve
+      roles: [maintainer]
+      prompt: "Approve the new CONTRIBUTING.md?"
+      present:
+        - nodes.draft_contributing.outputs.contributing
+      timeout_seconds: 86400
+      on_timeout: hold
+      on_reject: fail
+
+outputs:
+  contributing_guide:
+    type: file
+    description: The approved contributor guide.
+    from: nodes.draft_contributing.outputs.contributing

@@ -1,0 +1,15 @@
+# EXPECT: AG113
+# An edge references a node that does not exist in its scope.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag113-unknown-node
+title: Dangling edge
+objective: Demonstrate referential edge validation.
+entrypoints: [start]
+nodes:
+  start:
+    title: Start
+    description: Entry node.
+edges:
+  - from: start
+    to: nowhere
