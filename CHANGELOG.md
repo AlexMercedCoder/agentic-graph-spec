@@ -18,6 +18,16 @@ The format of this file follows [Keep a Changelog](https://keepachangelog.com/en
 
 Nothing yet.
 
+## [1.0.1] — 2026-08-27
+
+Normative errata and standards-hardening release. The document version remains `ags_version: "1.0"`.
+
+- Adopted RFC 8785 JCS for cross-language graph digests and added test vectors.
+- Corrected YAML parsing to YAML 1.2 Boolean semantics.
+- Resolved the closed-schema/forward-minor contradiction by requiring unsupported versions to fail closed.
+- Aligned AGX equality prose and made extension acceptance consistent across graph and run-record objects.
+- Added governance, security reporting, versioning, implementation reports, and a distributable Python support package.
+
 ## [1.0.0] — 2026-08-09
 
 Initial draft standard. `ags_version: "1.0"`.

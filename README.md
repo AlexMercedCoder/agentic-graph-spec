@@ -2,7 +2,7 @@
 
 **An open, implementation-neutral format for decomposing a project into a graph of agentic loops.**
 
-Spec version `1.0` · [SPEC.md](SPEC.md) · [JSON Schema](schema/agentic-graph-1.0.schema.json) · [Examples](examples/) · Apache-2.0
+Spec version `1.0` · maintenance release `1.0.1` · [SPEC.md](SPEC.md) · [JSON Schema](schema/agentic-graph-1.0.schema.json) · [Examples](examples/) · Apache-2.0
 
 ---
 
@@ -217,6 +217,14 @@ been through multiple independent implementations. Expect additive 1.x releases.
 The [versioning policy](SPEC.md#21-versioning-and-compatibility) is normative: MINOR releases are
 backward compatible, MAJOR releases get a new schema `$id`, and deprecated fields survive at least
 one MINOR release before removal.
+
+## Known implementations
+
+- [Loro](https://github.com/alexmerced-oss/loro) implements graph validation, planning, execution, run records, gates, loops, maps, routing and resumption.
+- [MagAgent](https://github.com/AlexMercedCoder/MagAgent) implements graph authoring, validation, scheduling, criteria, composition and run records.
+- [Merced-AI](https://github.com/AlexMercedCoder/merced-ai) is tracked as an integration candidate and does not currently publish an AGS conformance level.
+
+Implementation listings are evidence records, not endorsements. See [docs/implementation-report.md](docs/implementation-report.md); a conformance claim must identify the exact AGS maintenance release and fixture revision it passed.
 
 ## Contributing
 

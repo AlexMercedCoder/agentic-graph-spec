@@ -23,6 +23,7 @@ also trips `AG112`, for instance) — but the named code must be present.
 | `ag201-forward-read.agraph.yaml` | `AG201` | A node may only read outputs of its transitive predecessors. |
 | `ag204-bad-expression.agraph.yaml` | `AG204` | An expression is syntactically invalid or calls an unknown function. |
 | `ag205-secret-reference.agraph.yaml` | `AG205` | Expressions must not reference `secrets.*`. |
+| `ag131-recursive-subgraph.agraph.yaml` | `AG131` | Named subgraph references must not be recursive. |
 
 Run them all:
 

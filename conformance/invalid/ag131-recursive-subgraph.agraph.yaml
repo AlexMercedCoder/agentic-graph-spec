@@ -1,0 +1,24 @@
+# EXPECT: AG131
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag131
+title: Recursive named subgraph
+objective: Demonstrate that named subgraphs cannot recursively reference themselves.
+requires_conformance: 3
+subgraphs:
+  recursive:
+    title: Recursive fragment
+    entrypoints: [again]
+    nodes:
+      again:
+        type: subgraph
+        title: Re-enter the same fragment
+        description: This reference is recursively self-referential and must fail validation.
+        subgraph:
+          use: recursive
+entrypoints: [start]
+nodes:
+  start:
+    type: task
+    title: Start
+    description: A valid root node leaves the single intended defect in the named fragment.

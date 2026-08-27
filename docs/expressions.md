@@ -105,9 +105,7 @@ replayed from a run record.
 
 AGX values are JSON values: string, number, boolean, null, array, object.
 
-**Comparison is strictly typed.** Comparing a string to a number is an *evaluation error*, not
-`false`. This is intentional — silent type coercion in a guard expression routes a graph down the
-wrong branch and leaves no trace.
+**Ordering is strictly typed.** Comparing a string to a number with `<`, `<=`, `>`, or `>=` is an evaluation error. Equality is total over JSON values: values of different JSON types are unequal. There is never implicit coercion.
 
 | Operation | Rule |
 | --- | --- |

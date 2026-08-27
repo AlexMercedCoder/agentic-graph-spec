@@ -2,6 +2,7 @@
 
 **Status:** Draft standard
 **Spec version:** `1.0`
+**Maintenance release:** `1.0.1` (normative errata; document version remains `1.0`)
 **Document license:** Apache-2.0 (also available under CC BY 4.0 — see [LICENSE](LICENSE) and [LICENSE-CC-BY-4.0](LICENSE-CC-BY-4.0))
 **Canonical schema:** [`schema/agentic-graph-1.0.schema.json`](schema/agentic-graph-1.0.schema.json)
 
@@ -135,12 +136,7 @@ resolved during parsing and are not part of the data model; a harness MUST NOT r
 
 ### 3.3 Canonical form and digests
 
-The **canonical form** of a document is its JSON serialization with:
-
-1. object members sorted by Unicode code point of the member name,
-2. no insignificant whitespace,
-3. UTF-8 encoding,
-4. numbers serialized in the shortest round-trippable form.
+The **canonical form** of a document is the JSON Canonicalization Scheme (JCS) serialization defined by [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785). Implementations MUST reject values JCS cannot represent, including non-finite numbers. Appendix C publishes interoperability vectors.
 
 `graph_digest` values and `subgraph.ref.integrity` values are `sha256-` followed by the
 base64 encoding of the SHA-256 digest of the canonical form.
@@ -1173,8 +1169,7 @@ needs must arrive through `params`.
   `[a, b]`.
 - Operators (highest precedence first): `()` · `!` unary `-` · `* /  %` · `+ -` · `< <= > >=` ·
   `== !=` · `in` · `&&` / `and` · `||` / `or`.
-- Comparison is **strictly typed**: comparing a string to a number is an evaluation error, not
-  `false`. `==` on objects and arrays is deep equality.
+- Ordering comparisons are **strictly typed**: comparing a string to a number with `<`, `<=`, `>`, or `>=` is an evaluation error. Equality and inequality are defined for every JSON value; values of different JSON types compare unequal. `==` on objects and arrays is deep equality.
 - Functions (all pure and total): `len(x)`, `count(x)`, `contains(haystack, needle)`,
   `startswith(s, p)`, `endswith(s, p)`, `lower(s)`, `upper(s)`, `trim(s)`, `matches(s, pattern)`,
   `split(s, sep)`, `join(list, sep)`, `int(x)`, `float(x)`, `bool(x)`, `str(x)`, `json(s)`,
@@ -1593,8 +1588,7 @@ Given a document with `ags_version` `X.Y` and a harness supporting up to `X.Z`:
 | --- | --- |
 | Different `X` | MUST refuse (`AG002`). |
 | `Y ≤ Z` | MUST process. |
-| `Y > Z`, `policy.on_unknown_field: error` | MUST refuse (`AG002`). |
-| `Y > Z`, `policy.on_unknown_field: warn` | MAY process using the known subset, MUST emit a warning naming every field it ignored, and MUST record `harness.conformance_level` and the ignored fields in the run record. |
+| `Y > Z` | MUST refuse (`AG002`) unless the harness also implements the complete normative schema and behavior for `X.Y`. A harness MUST NOT claim compatibility by discarding fields it does not understand. |
 
 ### 21.4 Deprecation
 
@@ -1715,3 +1709,15 @@ The following names are reserved and MUST NOT be used as user-defined output or 
   `env`, `secrets`, `item` (reserved for future default `map.as`).
 - Node id `self`.
 - Any field name beginning with `x-` at a position where the spec defines a normative field.
+
+## Appendix C — Digest interoperability vectors
+
+Implementations MUST produce the following UTF-8 JCS bytes before hashing:
+
+| Logical JSON value | Canonical bytes as UTF-8 text |
+| --- | --- |
+| `{"b":2,"a":1}` | `{"a":1,"b":2}` |
+| `{"n":1.0}` | `{"n":1}` |
+| `{"s":"é","z":-0.0}` | `{"s":"é","z":0}` |
+
+The repository test suite contains the authoritative executable vectors and resulting `sha256-` base64 digests.

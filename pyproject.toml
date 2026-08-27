@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentic-graph-spec"
+version = "1.0.1"
+description = "Schemas, canonical digests, and reference validator for Agentic Graph Specification 1.0"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Alex Merced" }]
+dependencies = ["jsonschema>=4.18", "PyYAML>=6.0", "rfc8785>=0.1.4,<0.2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "build>=1.2", "twine>=5.0"]
+
+[project.scripts]
+ags-validate = "ags:main"
+
+[project.urls]
+Homepage = "https://github.com/AlexMercedCoder/agentic-graph-spec"
+Specification = "https://github.com/AlexMercedCoder/agentic-graph-spec/blob/v1.0.1/SPEC.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ags"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"tools/validate_agraph.py" = "ags/reference_validator.py"
+"schema" = "ags/schema"
+"conformance" = "ags/conformance"
+
+[tool.hatch.build.targets.sdist]
+include = ["ags", "tools", "schema", "conformance", "examples", "tests", "docs", "implementation-audits", "SPEC.md", "README.md", "CHANGELOG.md", "VERSIONING.md", "GOVERNANCE.md", "MAINTAINERS.md", "SECURITY.md", "CODE_OF_CONDUCT.md", "CONTRIBUTING.md", "LICENSE", "LICENSE-CC-BY-4.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

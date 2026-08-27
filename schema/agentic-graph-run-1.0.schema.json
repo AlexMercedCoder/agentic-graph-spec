@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/AlexMercedCoder/agentic-graph-spec/main/schema/agentic-graph-run-1.0.schema.json",
+  "$id": "https://raw.githubusercontent.com/AlexMercedCoder/agentic-graph-spec/v1.0.1/schema/agentic-graph-run-1.0.schema.json",
   "title": "Agentic Graph Run Record 1.0",
   "description": "Portable record of one execution of an Agentic Graph. Produced by a conformance level 3 harness. Enables auditing, resumption, replay, and cross-harness comparison.",
   "type": "object",
-  "required": ["ags_version", "kind", "run_id", "graph_id", "status", "started_at", "nodes"],
+  "required": ["ags_version", "kind", "run_id", "graph_id", "graph_digest", "harness", "status", "started_at", "nodes"],
   "additionalProperties": false,
   "patternProperties": { "^x-": {} },
   "properties": {
@@ -51,6 +51,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
+        "patternProperties": { "^x-": {} },
         "required": ["from", "to", "kind", "active"],
         "properties": {
           "from": { "type": "string" },
@@ -68,6 +69,7 @@
     "usage": {
       "type": "object",
       "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
       "properties": {
         "input_tokens": { "type": "integer", "minimum": 0 },
         "output_tokens": { "type": "integer", "minimum": 0 },
@@ -81,6 +83,7 @@
     "diagnostic": {
       "type": "object",
       "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
       "required": ["code", "severity", "message"],
       "properties": {
         "code": { "type": "string", "description": "Validation or runtime code, e.g. AG204 or RT031." },
@@ -94,6 +97,7 @@
     "criterion_result": {
       "type": "object",
       "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
       "required": ["id", "kind", "severity", "passed"],
       "properties": {
         "id": { "type": "string" },
@@ -111,6 +115,7 @@
     "criteria_results": {
       "type": "object",
       "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
       "required": ["passed", "results"],
       "properties": {
         "passed": { "type": "boolean" },
@@ -121,6 +126,7 @@
     "attempt": {
       "type": "object",
       "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
       "required": ["attempt", "status", "started_at"],
       "properties": {
         "attempt": { "type": "integer", "minimum": 1 },
@@ -152,6 +158,7 @@
     "node_run": {
       "type": "object",
       "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
       "required": ["node_id", "type", "status"],
       "properties": {
         "node_id": { "type": "string" },
@@ -177,6 +184,7 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
+            "patternProperties": { "^x-": {} },
             "required": ["at_stage", "mode", "outcome"],
             "properties": {
               "checkpoint_id": { "type": "string" },

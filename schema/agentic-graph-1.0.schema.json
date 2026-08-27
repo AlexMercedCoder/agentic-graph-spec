@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/AlexMercedCoder/agentic-graph-spec/main/schema/agentic-graph-1.0.schema.json",
+  "$id": "https://raw.githubusercontent.com/AlexMercedCoder/agentic-graph-spec/v1.0.1/schema/agentic-graph-1.0.schema.json",
   "title": "Agentic Graph Specification (AGS) 1.0",
   "description": "Canonical data model for an Agentic Graph: a directed acyclic graph whose nodes are agentic loops (tasks) and whose edges are control-flow dependencies. The same document may be written in JSON or YAML; this schema is the single normative shape for both.",
   "type": "object",
@@ -51,6 +51,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
+        "patternProperties": { "^x-": {} },
         "required": ["name"],
         "properties": {
           "name": { "type": "string" },
@@ -90,6 +91,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
+        "patternProperties": { "^x-": {} },
         "required": ["name"],
         "properties": {
           "name": { "$ref": "#/$defs/binding_name" },
@@ -184,6 +186,7 @@
     "attachment": {
       "type": "object",
       "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
       "required": ["name"],
       "properties": {
         "name": { "$ref": "#/$defs/binding_name" },
@@ -424,6 +427,7 @@
         {
           "type": "object",
           "additionalProperties": false,
+          "patternProperties": { "^x-": {} },
           "required": ["name"],
           "properties": {
             "name": { "type": "string", "minLength": 1 },
@@ -991,6 +995,7 @@
         "ref": {
           "type": "object",
           "additionalProperties": false,
+          "patternProperties": { "^x-": {} },
           "required": ["uri"],
           "properties": {
             "uri": {
@@ -1084,6 +1089,7 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
+            "patternProperties": { "^x-": {} },
             "required": ["label", "description"],
             "properties": {
               "label": { "$ref": "#/$defs/binding_name" },
@@ -1247,6 +1253,7 @@
         "estimate": {
           "type": "object",
           "additionalProperties": false,
+          "patternProperties": { "^x-": {} },
           "description": "Non-binding planning estimates. Useful for scheduling and for showing a user what a graph will cost.",
           "properties": {
             "effort": { "type": "string", "enum": ["xs", "s", "m", "l", "xl"] },

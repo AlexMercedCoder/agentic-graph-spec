@@ -360,6 +360,10 @@ def _no_duplicates(loader, node, deep=False):  # type: ignore[no-untyped-def]
 
 
 if yaml is not None:
+    # PyYAML defaults to YAML 1.1 booleans. AGS requires YAML 1.2 core
+    # semantics, where yes/no/on/off remain strings.
+    for _first in "yYnNoO":
+        _NoDuplicateLoader.yaml_implicit_resolvers.pop(_first, None)
     _NoDuplicateLoader.add_constructor(
         yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicates
     )
@@ -400,6 +404,22 @@ class Validator:
 
     # -- layer 1 ---------------------------------------------------------- #
 
+    @staticmethod
+    def _schema_diagnostic(error: Any) -> str:
+        """Map structural failures that have dedicated catalogue codes."""
+        path = list(error.absolute_path)
+        if error.validator == "additionalProperties":
+            return "AG003"
+        if error.validator == "enum":
+            return "AG004"
+        if len(path) >= 2 and path[-2:] == ["intelligence", "tier"]:
+            return "AG004"
+        if "edges" in path and error.validator in {"not", "allOf"}:
+            return "AG103"
+        if "inputs" in path and error.validator in {"oneOf", "maxProperties"}:
+            return "AG104"
+        return "AG001"
+
     def check_schema(self) -> bool:
         if jsonschema is None:
             self.report.add("AG001", "warning", "jsonschema is not installed; skipping layer 1.")
@@ -410,7 +430,7 @@ class Validator:
         for error in sorted(validator.iter_errors(self.doc), key=lambda e: list(e.absolute_path)):
             ok = False
             pointer = "/" + "/".join(str(p) for p in error.absolute_path)
-            self.report.add("AG001", "error", error.message, pointer)
+            self.report.add(self._schema_diagnostic(error), "error", error.message, pointer)
         return ok
 
     def check_version(self) -> None:
@@ -423,9 +443,10 @@ class Validator:
         if major != SUPPORTED_MAJOR:
             self.report.add("AG002", "error", f"unsupported major spec version {major}")
         elif minor > SUPPORTED_MINOR:
-            policy = (self.doc.get("policy") or {}).get("on_unknown_field", "error")
-            severity = "warning" if policy == "warn" else "error"
-            self.report.add("AG002", severity, f"document targets 1.{minor}, validator knows 1.{SUPPORTED_MINOR}")
+            self.report.add(
+                "AG002", "error",
+                f"document targets 1.{minor}, validator knows 1.{SUPPORTED_MINOR}; unsupported versions fail closed",
+            )
 
     # -- scope construction ------------------------------------------------ #
 
@@ -491,8 +512,41 @@ class Validator:
     # -- layer 2 ----------------------------------------------------------- #
 
     def check_topology(self) -> None:
+        self._check_named_fragment_recursion()
         for scope in self.scopes:
             self._check_scope_topology(scope)
+
+    def _check_named_fragment_recursion(self) -> None:
+        fragments = self.doc.get("subgraphs") or {}
+        dependencies: dict[str, set[str]] = {name: set() for name in fragments}
+        for name, fragment in fragments.items():
+            for node in (fragment.get("nodes") or {}).values():
+                for block_name in ("loop", "map", "subgraph"):
+                    use = (node.get(block_name) or {}).get("use")
+                    if isinstance(use, str):
+                        dependencies[name].add(use)
+
+        visited: set[str] = set()
+        active: list[str] = []
+
+        def visit(name: str) -> None:
+            if name in active:
+                cycle = active[active.index(name):] + [name]
+                self.report.add(
+                    "AG131", "error", "recursive subgraph reference: " + " -> ".join(cycle),
+                    f"/subgraphs/{name}",
+                )
+                return
+            if name in visited or name not in dependencies:
+                return
+            active.append(name)
+            for dependency in sorted(dependencies[name]):
+                visit(dependency)
+            active.pop()
+            visited.add(name)
+
+        for name in sorted(dependencies):
+            visit(name)
 
     def _check_scope_topology(self, scope: Scope) -> None:
         ids = set(scope.nodes)
