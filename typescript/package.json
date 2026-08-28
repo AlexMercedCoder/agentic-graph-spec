@@ -1,0 +1,64 @@
+{
+  "name": "agentic-graph-spec",
+  "version": "1.0.1",
+  "description": "TypeScript support library for Agentic Graph Specification 1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "bin": {
+    "ags-validate": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:dist": "node tests/smoke.mjs && node tests/smoke.cjs",
+    "audit:prod": "npm audit --omit=dev",
+    "check": "npm run typecheck && npm test && npm run build && npm run test:dist",
+    "prepack": "npm run check"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AlexMercedCoder/agentic-graph-spec.git",
+    "directory": "typescript"
+  },
+  "homepage": "https://github.com/AlexMercedCoder/agentic-graph-spec",
+  "bugs": "https://github.com/AlexMercedCoder/agentic-graph-spec/issues",
+  "keywords": [
+    "agent",
+    "ai",
+    "graph",
+    "workflow",
+    "specification"
+  ],
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "canonicalize": "^4.0.0",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1"
+  }
+}
