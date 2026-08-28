@@ -9,3 +9,4 @@ venv/
 typescript/node_modules/
 typescript/dist/
 /ags-validate
+/rust/target/

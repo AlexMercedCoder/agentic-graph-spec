@@ -1,0 +1,36 @@
+[package]
+name = "agentic-graph-spec"
+version = "1.0.3"
+edition = "2024"
+rust-version = "1.85"
+description = "Rust support library for Agentic Graph Specification 1.0"
+license = "Apache-2.0"
+repository = "https://github.com/AlexMercedCoder/agentic-graph-spec"
+homepage = "https://github.com/AlexMercedCoder/agentic-graph-spec"
+documentation = "https://docs.rs/agentic-graph-spec"
+readme = "README.md"
+keywords = ["agents", "workflow", "graph", "specification"]
+categories = ["data-structures", "development-tools"]
+include = ["src/**", "schema/**", "Cargo.toml", "README.md", "LICENSE"]
+
+[lib]
+name = "agentic_graph_spec"
+
+[[bin]]
+name = "ags-validate"
+path = "src/bin/ags-validate.rs"
+
+[dependencies]
+base64 = "0.22.1"
+clap = { version = "4.6.6", features = ["derive"] }
+jsonschema = { version = "0.52.0", default-features = false }
+regex = "1.13"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_jcs = "0.2.0"
+serde_yaml_ng = "0.10.0"
+sha2 = "0.10"
+thiserror = "2.0"
+
+[dev-dependencies]
+tempfile = "3"

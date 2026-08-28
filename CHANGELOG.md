@@ -16,7 +16,11 @@ The format of this file follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
-Nothing yet.
+- Added a Rust 1.85+ support crate with YAML/JSON parsing, duplicate-key rejection, embedded
+  schema and semantic validation, AGX parsing, RFC 8785 graph identities, effective-edge and
+  topological-order helpers, deterministic Level 0 planning, and the `ags-validate` CLI.
+- Added shared-corpus Rust tests, strict Clippy and rustdoc gates, MSRV verification, package
+  verification, and dependency vulnerability auditing.
 
 ## [1.0.2] — 2026-08-28
 

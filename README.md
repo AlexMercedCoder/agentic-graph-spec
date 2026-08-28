@@ -155,6 +155,16 @@ go run github.com/AlexMercedCoder/agentic-graph-spec/cmd/ags-validate@v1.0.2 pat
 The `ags` package exposes parsing, validation, RFC 8785 identity, effective-edge and
 topological-order helpers, and the deterministic Level 0 planner.
 
+The Rust crate provides the same Level 0 support surface with an MSRV of Rust 1.85:
+
+```bash
+cargo add agentic-graph-spec@1.0.3
+cargo install agentic-graph-spec --version 1.0.3
+ags-validate path/to/graph.agraph.yaml
+```
+
+See [`rust/`](rust/) for its API, CLI, and cross-language conformance tests.
+
 The validator implements all three layers described in [SPEC.md §18](SPEC.md#18-validation):
 JSON Schema, cross-reference and topology checks, and AGX expression and dataflow analysis. It is a
 reference implementation — SPEC.md is normative.
@@ -186,6 +196,7 @@ JSON and YAML forms of the canonical example parsing to identical data.
 | [`conformance/`](conformance/) | Fixtures a harness can test against. |
 | [`tools/`](tools/) | Reference validator (`validate_agraph.py`, including an AGX parser), schema behavior tests (`test_schema.py`), and the repository self-check (`run_checks.sh`). |
 | Root Go package and [`cmd/ags-validate/`](cmd/ags-validate/) | Go 1.26 support library and validator CLI. |
+| [`rust/`](rust/) | Rust 1.85+ support crate and `ags-validate` CLI. |
 
 ### Examples
 
