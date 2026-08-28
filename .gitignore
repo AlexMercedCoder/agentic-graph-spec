@@ -6,3 +6,6 @@ venv/
 *.swp
 .idea/
 .vscode/
+typescript/node_modules/
+typescript/dist/
+/ags-validate

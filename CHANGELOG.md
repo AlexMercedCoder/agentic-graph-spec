@@ -18,6 +18,17 @@ The format of this file follows [Keep a Changelog](https://keepachangelog.com/en
 
 Nothing yet.
 
+## [1.0.2] — 2026-08-28
+
+- Added the `agentic-graph-spec` npm package under `typescript/` with YAML/JSON parsing, duplicate-key
+  rejection, JSON Schema and semantic diagnostics, RFC 8785 digests, AGX parsing, deterministic
+  Level 0 planning, TypeScript declarations, and ESM/CommonJS entry points.
+- Added cross-language digest vectors, fixture-driven TypeScript tests, Node 20 CI, CLI validation,
+  production dependency auditing, and packed-distribution smoke coverage.
+- Added the root Go module and `ags-validate` command with Go 1.26 support, embedded schema
+  validation, the complete AGS diagnostic catalogue, AGX parsing, RFC 8785 identity, deterministic
+  Level 0 planning, race-tested conformance coverage, and Go vulnerability scanning.
+
 ## [1.0.1] — 2026-08-27
 
 Normative errata and standards-hardening release. The document version remains `ags_version: "1.0"`.
@@ -108,5 +119,7 @@ Initial draft standard. `ags_version: "1.0"`.
 - `docs/expressions.md`, `docs/harness-integration.md`, `docs/skill-authoring.md`,
   `docs/design-rationale.md`, `GLOSSARY.md`.
 
-[Unreleased]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/AlexMercedCoder/agentic-graph-spec/releases/tag/v1.0.0

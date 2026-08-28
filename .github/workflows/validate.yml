@@ -24,3 +24,33 @@ jobs:
           python -m pip install build twine rfc8785
           python -m build
           python -m twine check dist/*
+
+  typescript:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: typescript/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run audit:prod
+      - run: npm pack --dry-run
+
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.7"
+          cache: true
+      - run: go test -race ./...
+      - run: go vet ./...
+      - run: go build ./cmd/ags-validate
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
