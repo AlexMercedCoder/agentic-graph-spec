@@ -16,14 +16,12 @@ The format of this file follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
-- Added an opt-in Maven Central release profile with GPG signing and documented
-  maintainer commands for validating and deploying signed Java artifacts.
-
 ## [1.0.3] — 2026-08-28
 
 - Added a Java 17 support library with strict YAML/JSON parsing, embedded schema and semantic
   validation, AGX parsing, RFC 8785 identities, deterministic planning, and an executable CLI.
 - Added shared-corpus Java tests, compiler linting, Javadocs, SpotBugs, and Maven package checks.
+- Published the signed Java artifacts to Maven Central and added an opt-in release profile.
 
 - Added a Rust 1.85+ support crate with YAML/JSON parsing, duplicate-key rejection, embedded
   schema and semantic validation, AGX parsing, RFC 8785 graph identities, effective-edge and

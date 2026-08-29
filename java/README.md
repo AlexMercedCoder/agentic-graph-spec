@@ -6,6 +6,8 @@ parsing, embedded schema and semantic validation, AGX parsing, RFC 8785 graph
 identities, effective edges, deterministic topological ordering and planning,
 and a validator CLI. It validates and plans graphs; it does not execute them.
 
+Version 1.0.3 is available from [Maven Central](https://central.sonatype.com/artifact/io.github.alexmercedcoder/agentic-graph-spec/1.0.3).
+
 ```xml
 <dependency>
   <groupId>io.github.alexmercedcoder</groupId>

@@ -76,9 +76,9 @@ See the [Rust README](../rust/README.md) for the native API and MSRV policy.
 </dependency>
 ```
 
+Version 1.0.3 is published on [Maven Central](https://central.sonatype.com/artifact/io.github.alexmercedcoder/agentic-graph-spec/1.0.3).
 The Java source builds a normal library JAR, source and Javadoc JARs, and an
-executable `-cli.jar`. See the [Java README](../java/README.md). Maven Central
-publication is pending initial namespace and signing setup.
+executable `-cli.jar`. See the [Java README](../java/README.md).
 
 ## Conformance and maintenance
 

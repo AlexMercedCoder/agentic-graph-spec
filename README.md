@@ -148,8 +148,8 @@ See [`typescript/`](typescript/) for its API and conformance tests.
 Go 1.26 or newer can use the root Go module:
 
 ```bash
-go get github.com/AlexMercedCoder/agentic-graph-spec@v1.0.2
-go run github.com/AlexMercedCoder/agentic-graph-spec/cmd/ags-validate@v1.0.2 path/to/graph.agraph.yaml
+go get github.com/AlexMercedCoder/agentic-graph-spec@v1.0.3
+go run github.com/AlexMercedCoder/agentic-graph-spec/cmd/ags-validate@v1.0.3 path/to/graph.agraph.yaml
 ```
 
 The `ags` package exposes parsing, validation, RFC 8785 identity, effective-edge and
