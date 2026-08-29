@@ -2,7 +2,7 @@
 
 **An open, implementation-neutral format for decomposing a project into a graph of agentic loops.**
 
-Spec version `1.0` · maintenance release `1.0.2` · [SPEC.md](SPEC.md) · [JSON Schema](schema/agentic-graph-1.0.schema.json) · [Examples](examples/) · Apache-2.0
+Spec version `1.0` · maintenance release `1.0.3` · [SPEC.md](SPEC.md) · [JSON Schema](schema/agentic-graph-1.0.schema.json) · [Examples](examples/) · [Support libraries](docs/support-libraries.md) · Apache-2.0
 
 ---
 
@@ -163,6 +163,18 @@ cargo install agentic-graph-spec --version 1.0.3
 ags-validate path/to/graph.agraph.yaml
 ```
 
+Java 17 users can use the Maven support library and executable validator JAR:
+
+```xml
+<dependency>
+  <groupId>io.github.alexmercedcoder</groupId>
+  <artifactId>agentic-graph-spec</artifactId>
+  <version>1.0.3</version>
+</dependency>
+```
+
+See [`java/`](java/) for the API, CLI, and shared-corpus conformance tests.
+
 See [`rust/`](rust/) for its API, CLI, and cross-language conformance tests.
 
 The validator implements all three layers described in [SPEC.md §18](SPEC.md#18-validation):
@@ -191,6 +203,7 @@ JSON and YAML forms of the canonical example parsing to identical data.
 | [`docs/expressions.md`](docs/expressions.md) | AGX, the small expression language used by conditions, bindings and criteria. |
 | [`docs/harness-integration.md`](docs/harness-integration.md) | How a harness developer adds AGS support: parsing, validation, scheduling, model routing, criteria evaluation, HITL, run records. |
 | [`docs/skill-authoring.md`](docs/skill-authoring.md) | How to package AGS support as an agent skill, so an agent can author and run graphs. |
+| [`docs/support-libraries.md`](docs/support-libraries.md) | Installation, API examples, runtimes, and release status for Python, TypeScript, Go, Rust, and Java. |
 | [`docs/design-rationale.md`](docs/design-rationale.md) | Why the format is shaped the way it is, and what was rejected. |
 | [`GLOSSARY.md`](GLOSSARY.md) | Terms of art, defined once. |
 | [`conformance/`](conformance/) | Fixtures a harness can test against. |
