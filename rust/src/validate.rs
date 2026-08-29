@@ -96,11 +96,17 @@ struct Scope {
     nodes: Document,
     edges: Vec<Value>,
     entrypoints: Vec<String>,
+    param_names: BTreeSet<String>,
     root: bool,
 }
 
 fn scopes(document: &Document) -> Vec<Scope> {
-    fn collect(nodes: &Document, base: &str, result: &mut Vec<Scope>) {
+    fn collect(
+        nodes: &Document,
+        base: &str,
+        inherited_params: &BTreeSet<String>,
+        result: &mut Vec<Scope>,
+    ) {
         for (id, raw) in nodes {
             let node = object(Some(raw));
             let kind = node.get("type").and_then(Value::as_str).unwrap_or("task");
@@ -111,6 +117,8 @@ fn scopes(document: &Document) -> Vec<Scope> {
             let key = if kind == "subgraph" { "inline" } else { "body" };
             if let Some(fragment) = block.get(key).and_then(Value::as_object) {
                 let pointer = format!("{base}/nodes/{id}/{kind}/{key}");
+                let declared: BTreeSet<String> =
+                    object(fragment.get("params")).keys().cloned().collect();
                 let child = Scope {
                     pointer: pointer.clone(),
                     nodes: object(fragment.get("nodes")).clone(),
@@ -120,13 +128,19 @@ fn scopes(document: &Document) -> Vec<Scope> {
                         .cloned()
                         .unwrap_or_default(),
                     entrypoints: strings(fragment.get("entrypoints")),
+                    param_names: if declared.is_empty() {
+                        inherited_params.clone()
+                    } else {
+                        declared
+                    },
                     root: false,
                 };
-                collect(&child.nodes, &pointer, result);
+                collect(&child.nodes, &pointer, &child.param_names, result);
                 result.push(child);
             }
         }
     }
+    let root_params: BTreeSet<String> = object(document.get("params")).keys().cloned().collect();
     let mut result = vec![Scope {
         pointer: String::new(),
         nodes: object(document.get("nodes")).clone(),
@@ -136,12 +150,14 @@ fn scopes(document: &Document) -> Vec<Scope> {
             .cloned()
             .unwrap_or_default(),
         entrypoints: strings(document.get("entrypoints")),
+        param_names: root_params.clone(),
         root: true,
     }];
-    collect(&result[0].nodes.clone(), "", &mut result);
+    collect(&result[0].nodes.clone(), "", &root_params, &mut result);
     for (name, raw) in object(document.get("subgraphs")) {
         let fragment = object(Some(raw));
         let pointer = format!("/subgraphs/{name}");
+        let declared: BTreeSet<String> = object(fragment.get("params")).keys().cloned().collect();
         let child = Scope {
             pointer: pointer.clone(),
             nodes: object(fragment.get("nodes")).clone(),
@@ -151,9 +167,14 @@ fn scopes(document: &Document) -> Vec<Scope> {
                 .cloned()
                 .unwrap_or_default(),
             entrypoints: strings(fragment.get("entrypoints")),
+            param_names: if declared.is_empty() {
+                root_params.clone()
+            } else {
+                declared
+            },
             root: false,
         };
-        collect(&child.nodes, &pointer, &mut result);
+        collect(&child.nodes, &pointer, &child.param_names, &mut result);
         result.push(child);
     }
     result
@@ -928,6 +949,17 @@ fn validate_expression(
                 "expressions must not reference secrets.*",
                 pointer,
             );
+            continue;
+        }
+        if parts.first().is_some_and(|part| part == "params") {
+            if parts.len() >= 2 && !scope.param_names.contains(&parts[1]) {
+                report.add(
+                    "AG203",
+                    "error",
+                    format!("undeclared param {:?}", parts[1]),
+                    pointer,
+                );
+            }
             continue;
         }
         if parts.first().is_some_and(|part| part == "nodes") && parts.len() >= 2 {

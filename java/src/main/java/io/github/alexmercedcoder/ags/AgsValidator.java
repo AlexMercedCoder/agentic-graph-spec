@@ -90,7 +90,7 @@ public final class AgsValidator {
   }
 
   private record Edge(String from, String to) {}
-  private record Scope(String pointer, ObjectNode nodes, List<JsonNode> edges, List<String> entrypoints, boolean root) {}
+  private record Scope(String pointer, ObjectNode nodes, List<JsonNode> edges, List<String> entrypoints, Set<String> paramNames, boolean root) {}
 
   private static void semantic(ObjectNode document, Report report) {
     List<Scope> scopes = scopes(document);
@@ -105,18 +105,20 @@ public final class AgsValidator {
 
   private static List<Scope> scopes(ObjectNode document) {
     List<Scope> result = new ArrayList<>();
-    Scope root = new Scope("", Ags.object(document.get("nodes")), array(document.get("edges")), JsonSupport.strings(document.get("entrypoints")), true);
-    result.add(root); collectInline(root.nodes, "", result);
+    Set<String> rootParams = new HashSet<>(); Ags.object(document.get("params")).properties().forEach(entry -> rootParams.add(entry.getKey()));
+    Scope root = new Scope("", Ags.object(document.get("nodes")), array(document.get("edges")), JsonSupport.strings(document.get("entrypoints")), rootParams, true);
+    result.add(root); collectInline(root.nodes, "", rootParams, result);
     Ags.object(document.get("subgraphs")).properties().forEach(entry -> {
       ObjectNode fragment = Ags.object(entry.getValue());
       String pointer = "/subgraphs/" + entry.getKey();
-      Scope child = new Scope(pointer, Ags.object(fragment.get("nodes")), array(fragment.get("edges")), JsonSupport.strings(fragment.get("entrypoints")), false);
-      collectInline(child.nodes, pointer, result); result.add(child);
+      Set<String> params = new HashSet<>(); Ags.object(fragment.get("params")).properties().forEach(param -> params.add(param.getKey())); if (params.isEmpty()) params.addAll(rootParams);
+      Scope child = new Scope(pointer, Ags.object(fragment.get("nodes")), array(fragment.get("edges")), JsonSupport.strings(fragment.get("entrypoints")), params, false);
+      collectInline(child.nodes, pointer, params, result); result.add(child);
     });
     return result;
   }
 
-  private static void collectInline(ObjectNode nodes, String base, List<Scope> out) {
+  private static void collectInline(ObjectNode nodes, String base, Set<String> inheritedParams, List<Scope> out) {
     nodes.properties().forEach(entry -> {
       ObjectNode node = Ags.object(entry.getValue()); String kind = node.path("type").asText("task");
       if (!Set.of("loop", "map", "subgraph").contains(kind)) return;
@@ -124,8 +126,9 @@ public final class AgsValidator {
       JsonNode raw = Ags.object(node.get(kind)).get(key);
       if (raw == null || !raw.isObject()) return;
       ObjectNode fragment = (ObjectNode) raw; String pointer = base + "/nodes/" + entry.getKey() + "/" + kind + "/" + key;
-      Scope child = new Scope(pointer, Ags.object(fragment.get("nodes")), array(fragment.get("edges")), JsonSupport.strings(fragment.get("entrypoints")), false);
-      collectInline(child.nodes, pointer, out); out.add(child);
+      Set<String> params = new HashSet<>(); Ags.object(fragment.get("params")).properties().forEach(param -> params.add(param.getKey())); if (params.isEmpty()) params.addAll(inheritedParams);
+      Scope child = new Scope(pointer, Ags.object(fragment.get("nodes")), array(fragment.get("edges")), JsonSupport.strings(fragment.get("entrypoints")), params, false);
+      collectInline(child.nodes, pointer, params, out); out.add(child);
     });
   }
 
@@ -257,6 +260,7 @@ public final class AgsValidator {
         Map.entry("contains", two()), Map.entry("startswith", two()), Map.entry("endswith", two()), Map.entry("matches", two()), Map.entry("split", two()), Map.entry("join", two()), Map.entry("default", two()), Map.entry("output", two()));
     for (AgxParser.Call call : parsed.calls()) { int[] allowed = functions.get(call.name()); if (allowed == null) report.add("AG204", "error", "unknown function " + quoted(call.name()), pointer); else if (call.arity() < allowed[0] || call.arity() > allowed[1]) report.add("AG204", "error", "function " + call.name() + " received " + call.arity() + " argument(s)", pointer); }
     for (List<String> parts : parsed.references()) { if (parts.isEmpty()) continue; if (parts.get(0).equals("secrets")) { report.add("AG205", "error", "expressions must not reference secrets.*", pointer); continue; }
+      if (parts.get(0).equals("params")) { if (parts.size() >= 2 && !scope.paramNames.contains(parts.get(1))) report.add("AG203", "error", "undeclared param " + quoted(parts.get(1)), pointer); continue; }
       if (parts.get(0).equals("nodes") && parts.size() >= 2) { String target = parts.get(1); if (!scope.nodes.has(target)) { boolean childBound = pointer.contains("/loop/condition") || pointer.contains("/loop/collect/") || pointer.contains("/map/collect/"); if (!childBound) report.add(scope.root ? "AG203" : "AG202", "error", "unknown node " + quoted(target), pointer); }
         else if (parts.size() >= 4 && parts.get(2).equals("outputs") && !declaredOutputs(Ags.object(scope.nodes.get(target))).contains(parts.get(3))) report.add("AG206", "error", "node " + quoted(target) + " does not declare output " + quoted(parts.get(3)), pointer);
         else if (!target.equals(nodeId) && !predecessors.contains(target)) report.add("AG201", "error", "node " + quoted(nodeId) + " reads output of non-predecessor " + quoted(target), pointer); }

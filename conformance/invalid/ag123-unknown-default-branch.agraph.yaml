@@ -1,0 +1,20 @@
+# EXPECT: AG123
+# default_branch must name a declared decision branch.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag123-unknown-default-branch
+title: Unknown default branch
+objective: Demonstrate decision default validation.
+entrypoints: [choose]
+nodes:
+  choose:
+    type: decision
+    title: Choose
+    description: Names a missing default branch.
+    decision:
+      question: Which path applies?
+      evaluator: agent
+      branches:
+        - label: proceed
+          description: The only declared branch.
+      default_branch: stop

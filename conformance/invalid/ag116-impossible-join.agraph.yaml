@@ -1,0 +1,18 @@
+# EXPECT: AG116
+# join_count cannot exceed the number of incoming edges.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag116-impossible-join
+title: Impossible n-of join
+objective: Demonstrate join cardinality validation.
+entrypoints: [start]
+nodes:
+  start:
+    title: Start
+    description: The only predecessor.
+  join:
+    title: Join
+    description: Requires more predecessors than exist.
+    depends_on: [start]
+    join: n_of
+    join_count: 2

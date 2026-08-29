@@ -1,6 +1,6 @@
 {
   "name": "agentic-graph-spec",
-  "version": "1.0.1",
+  "version": "1.0.4",
   "description": "TypeScript support library for Agentic Graph Specification 1.0",
   "license": "Apache-2.0",
   "type": "module",

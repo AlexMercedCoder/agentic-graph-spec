@@ -24,7 +24,7 @@ use serde_json::{Map, Value};
 /// AGS specification version implemented by this crate.
 pub const AGS_VERSION: &str = "1.0";
 /// Version of this Rust support library.
-pub const SUPPORT_VERSION: &str = "1.0.3";
+pub const SUPPORT_VERSION: &str = "1.0.4";
 /// A parsed AGS document represented as a JSON-compatible object.
 pub type Document = Map<String, Value>;
 

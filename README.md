@@ -2,7 +2,9 @@
 
 **An open, implementation-neutral format for decomposing a project into a graph of agentic loops.**
 
-Spec version `1.0` · maintenance release `1.0.3` · [SPEC.md](SPEC.md) · [JSON Schema](schema/agentic-graph-1.0.schema.json) · [Examples](examples/) · [Support libraries](docs/support-libraries.md) · Apache-2.0
+Spec version `1.0` · normative maintenance `1.0.1` · support-library release candidate `1.0.4` · [SPEC.md](SPEC.md) · [JSON Schema](schema/agentic-graph-1.0.schema.json) · [Examples](examples/) · [Support libraries](docs/support-libraries.md) · Apache-2.0
+
+Release preparation: [1.0.4 checklist](docs/release-1.0.4.md) · [internal security review](docs/security-review-1.0.4.md)
 
 ---
 

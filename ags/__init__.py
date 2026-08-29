@@ -13,7 +13,7 @@ from typing import Any
 
 import rfc8785
 
-__version__ = "1.0.1"
+__version__ = "1.0.4"
 AGS_VERSION = "1.0"
 
 

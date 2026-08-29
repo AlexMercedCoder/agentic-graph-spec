@@ -1,0 +1,18 @@
+# EXPECT: AG112
+# An entrypoint cannot have an incoming edge.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag112-entrypoint-incoming
+title: Entrypoint with incoming edge
+objective: Demonstrate entrypoint topology validation.
+entrypoints: [start]
+nodes:
+  start:
+    title: Start
+    description: Incorrectly has a predecessor.
+  predecessor:
+    title: Predecessor
+    description: Points to the declared entrypoint.
+edges:
+  - from: predecessor
+    to: start

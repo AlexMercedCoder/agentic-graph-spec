@@ -1,0 +1,13 @@
+# EXPECT: AG114
+# depends_on must name a node in the same scope.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag114-unknown-dependency
+title: Unknown dependency
+objective: Demonstrate dependency validation.
+entrypoints: [start]
+nodes:
+  start:
+    title: Start
+    description: Refers to an absent dependency.
+    depends_on: [missing]

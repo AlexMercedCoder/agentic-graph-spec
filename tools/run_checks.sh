@@ -23,6 +23,24 @@ else
 fi
 
 echo
+echo "== 0b. checked-in conformance claims =="
+if "$PY" tools/verify_conformance_results.py; then
+  echo "   PASS"
+else
+  echo "   FAIL: a conformance result is malformed or incomplete for its claimed level"
+  failures=$((failures + 1))
+fi
+
+echo
+echo "== 0c. support-library release versions =="
+if "$PY" tools/verify_release_versions.py; then
+  echo "   PASS"
+else
+  echo "   FAIL: support-library release versions have drifted"
+  failures=$((failures + 1))
+fi
+
+echo
 echo "== 1. examples/ must be clean (strict) =="
 if "$PY" tools/validate_agraph.py --strict examples/; then
   echo "   PASS"

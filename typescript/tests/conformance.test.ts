@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { readFileSync, readdirSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -35,17 +36,13 @@ describe("AGS 1.0 conformance corpus", () => {
     });
   }
 
-  for (const [name, code] of [
-    ["ag111-cycle.agraph.yaml", "AG111"],
-    ["ag113-unknown-node.agraph.yaml", "AG113"],
-    ["ag131-recursive-subgraph.agraph.yaml", "AG131"],
-    ["ag141-tier-mismatch.agraph.yaml", "AG141"],
-    ["ag201-forward-read.agraph.yaml", "AG201"],
-    ["ag204-bad-expression.agraph.yaml", "AG204"],
-    ["ag205-secret-reference.agraph.yaml", "AG205"],
-  ] as const) {
+  const invalidDirectory = resolve(repository, "conformance/invalid");
+  const invalid = readdirSync(invalidDirectory).filter((name) => name.endsWith(".agraph.yaml")).sort();
+  for (const name of invalid) {
+    const text = readFileSync(resolve(invalidDirectory, name), "utf8");
+    const code = /^# EXPECT: (AG\d+)$/m.exec(text)?.[1];
     it(`rejects ${name} with ${code}`, async () => {
-      const text = await readFile(resolve(repository, "conformance/invalid", name), "utf8");
+      expect(code, `${name} has no EXPECT header`).toBeDefined();
       const report = validateGraph(parseGraph(text));
       expect(report.errors.map((finding) => finding.code)).toContain(code);
     });

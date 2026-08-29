@@ -7,8 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.file.Path;
+import java.nio.file.Files;
+import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 final class AgsConformanceTest {
@@ -22,17 +23,19 @@ final class AgsConformanceTest {
     }
   }
 
-  @Test void rejectsSharedInvalidCorpusWithExpectedCodes() {
-    Map<String, String> expected = Map.of(
-        "ag204-bad-expression.agraph.yaml", "AG204", "ag205-secret-reference.agraph.yaml", "AG205",
-        "ag201-forward-read.agraph.yaml", "AG201", "ag113-unknown-node.agraph.yaml", "AG113",
-        "ag141-tier-mismatch.agraph.yaml", "AG141", "ag111-cycle.agraph.yaml", "AG111",
-        "ag131-recursive-subgraph.agraph.yaml", "AG131");
-    expected.forEach((name, code) -> {
-      Ags.ValidationReport report = AgsValidator.validate(ROOT.resolve("conformance/invalid").resolve(name));
+  @Test void rejectsSharedInvalidCorpusWithExpectedCodes() throws IOException {
+    Path directory = ROOT.resolve("conformance/invalid");
+    try (var paths = Files.list(directory)) {
+      for (Path path : paths.filter(candidate -> candidate.toString().endsWith(".agraph.yaml")).sorted().toList()) {
+      String name = path.getFileName().toString();
+      String header = Files.readAllLines(path).get(0);
+      assertTrue(header.startsWith("# EXPECT: AG"), name + " has no EXPECT header");
+      String code = header.substring("# EXPECT: ".length()).trim();
+      Ags.ValidationReport report = AgsValidator.validate(path);
       assertFalse(report.ok(), name);
       assertTrue(report.errors().stream().anyMatch(issue -> issue.code().equals(code)), () -> name + ": " + report.errors());
-    });
+      }
+    }
   }
 
   @Test void canonicalIdentityMatchesOtherLibraries() throws Exception {

@@ -1,0 +1,12 @@
+# EXPECT: AG002
+# Validators fail closed when a document targets a newer minor version.
+ags_version: "1.1"
+kind: AgenticGraph
+id: conformance/ag002-unsupported-version
+title: Unsupported minor version
+objective: Demonstrate fail-closed version handling.
+entrypoints: [start]
+nodes:
+  start:
+    title: Start
+    description: A structurally valid node.

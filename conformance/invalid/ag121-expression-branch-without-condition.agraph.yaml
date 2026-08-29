@@ -1,0 +1,19 @@
+# EXPECT: AG121
+# Every expression-evaluated decision branch needs a when expression.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag121-expression-branch-without-condition
+title: Missing branch condition
+objective: Demonstrate expression-decision validation.
+entrypoints: [choose]
+nodes:
+  choose:
+    type: decision
+    title: Choose
+    description: Contains a branch with no condition.
+    decision:
+      question: Which path applies?
+      evaluator: expression
+      branches:
+        - label: proceed
+          description: Proceed unconditionally.

@@ -1,0 +1,17 @@
+# EXPECT: AG203
+# Expressions may only reference declared parameters.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag203-undeclared-param
+title: Undeclared parameter
+objective: Demonstrate expression scope validation.
+entrypoints: [start]
+nodes:
+  start:
+    title: Start
+    description: Reads a parameter that is not declared.
+    inputs:
+      value:
+        type: text
+        description: An invalid parameter reference.
+        from: params.missing

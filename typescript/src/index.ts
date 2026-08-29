@@ -1,5 +1,5 @@
 export const AGS_VERSION = "1.0";
-export const SUPPORT_VERSION = "1.0.1";
+export const SUPPORT_VERSION = "1.0.4";
 
 import { loadGraph as loadGraphDocument } from "./parse.js";
 import type { ValidationReport } from "./types.js";

@@ -4,7 +4,7 @@ package ags
 
 const (
 	AGSVersion     = "1.0"
-	SupportVersion = "1.0.2"
+	SupportVersion = "1.0.4"
 )
 
 type Document map[string]any

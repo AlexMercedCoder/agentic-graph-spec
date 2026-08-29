@@ -26,16 +26,21 @@ fn accepts_valid_corpus() {
 
 #[test]
 fn rejects_invalid_corpus_with_expected_codes() {
-    for (name, code) in [
-        ("ag111-cycle.agraph.yaml", "AG111"),
-        ("ag113-unknown-node.agraph.yaml", "AG113"),
-        ("ag131-recursive-subgraph.agraph.yaml", "AG131"),
-        ("ag141-tier-mismatch.agraph.yaml", "AG141"),
-        ("ag201-forward-read.agraph.yaml", "AG201"),
-        ("ag204-bad-expression.agraph.yaml", "AG204"),
-        ("ag205-secret-reference.agraph.yaml", "AG205"),
-    ] {
-        let report = validate_path(repository().join("conformance/invalid").join(name));
+    let directory = repository().join("conformance/invalid");
+    let mut fixtures = std::fs::read_dir(&directory)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.to_string_lossy().ends_with(".agraph.yaml"))
+        .collect::<Vec<_>>();
+    fixtures.sort();
+    for path in fixtures {
+        let name = path.file_name().unwrap().to_string_lossy();
+        let source = std::fs::read_to_string(&path).unwrap();
+        let header = source.lines().next().unwrap_or_default();
+        let code = header
+            .strip_prefix("# EXPECT: ")
+            .expect("fixture has no EXPECT header");
+        let report = validate_path(&path);
         assert!(
             report.errors.iter().any(|finding| finding.code == code),
             "{name}: {:?}",

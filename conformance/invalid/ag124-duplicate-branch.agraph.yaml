@@ -1,0 +1,21 @@
+# EXPECT: AG124
+# Decision branch labels must be unique.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag124-duplicate-branch
+title: Duplicate decision branch
+objective: Demonstrate decision label validation.
+entrypoints: [choose]
+nodes:
+  choose:
+    type: decision
+    title: Choose
+    description: Declares the same branch twice.
+    decision:
+      question: Which path applies?
+      evaluator: agent
+      branches:
+        - label: proceed
+          description: First declaration.
+        - label: proceed
+          description: Duplicate declaration.

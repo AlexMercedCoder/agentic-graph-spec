@@ -1,0 +1,13 @@
+# EXPECT: AG211
+# Expression fields contain raw AGX and cannot use template interpolation delimiters.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag211-interpolation-in-expression
+title: Interpolation in expression
+objective: Demonstrate expression-position validation.
+entrypoints: [start]
+nodes:
+  start:
+    title: Start
+    description: Uses template syntax where raw AGX is required.
+    when: "${{ true }}"

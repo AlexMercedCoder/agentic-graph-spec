@@ -17,8 +17,24 @@ func TestConformanceCorpus(t *testing.T) {
 			}
 		})
 	}
-	invalid := map[string]string{"ag111-cycle.agraph.yaml": "AG111", "ag113-unknown-node.agraph.yaml": "AG113", "ag131-recursive-subgraph.agraph.yaml": "AG131", "ag141-tier-mismatch.agraph.yaml": "AG141", "ag201-forward-read.agraph.yaml": "AG201", "ag204-bad-expression.agraph.yaml": "AG204", "ag205-secret-reference.agraph.yaml": "AG205"}
-	for name, code := range invalid {
+	entries, err := os.ReadDir(filepath.Join("conformance", "invalid"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".agraph.yaml") {
+			continue
+		}
+		content, err := os.ReadFile(filepath.Join("conformance", "invalid", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		first := strings.SplitN(string(content), "\n", 2)[0]
+		code := strings.TrimSpace(strings.TrimPrefix(first, "# EXPECT:"))
+		if !strings.HasPrefix(first, "# EXPECT: AG") {
+			t.Fatalf("%s has no EXPECT header", name)
+		}
 		t.Run(name, func(t *testing.T) {
 			report := ValidatePath(filepath.Join("conformance", "invalid", name))
 			found := false

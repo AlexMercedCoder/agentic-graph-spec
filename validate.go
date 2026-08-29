@@ -108,14 +108,16 @@ type graphScope struct {
 	nodes        map[string]any
 	edges        []any
 	entrypoints  []string
+	paramNames   map[string]bool
 	isRoot       bool
 	predecessors map[string]map[string]bool
 }
 
 func scopes(document Document) []graphScope {
-	result := []graphScope{{nodes: obj(document["nodes"]), edges: arr(document["edges"]), entrypoints: strs(document["entrypoints"]), isRoot: true}}
-	var collect func(map[string]any, string)
-	collect = func(nodes map[string]any, base string) {
+	rootParams := stringSet(obj(document["params"]))
+	result := []graphScope{{nodes: obj(document["nodes"]), edges: arr(document["edges"]), entrypoints: strs(document["entrypoints"]), paramNames: rootParams, isRoot: true}}
+	var collect func(map[string]any, string, map[string]bool)
+	collect = func(nodes map[string]any, base string, inheritedParams map[string]bool) {
 		for id, raw := range nodes {
 			node := obj(raw)
 			typ := stringValue(node["type"])
@@ -132,19 +134,27 @@ func scopes(document Document) []graphScope {
 			}
 			if fragment, ok := block[key].(map[string]any); ok {
 				pointer := fmt.Sprintf("%s/nodes/%s/%s/%s", base, id, typ, key)
-				child := graphScope{pointer: pointer, nodes: obj(fragment["nodes"]), edges: arr(fragment["edges"]), entrypoints: strs(fragment["entrypoints"])}
+				params := stringSet(obj(fragment["params"]))
+				if len(params) == 0 {
+					params = cloneStringSet(inheritedParams)
+				}
+				child := graphScope{pointer: pointer, nodes: obj(fragment["nodes"]), edges: arr(fragment["edges"]), entrypoints: strs(fragment["entrypoints"]), paramNames: params}
 				result = append(result, child)
-				collect(child.nodes, pointer)
+				collect(child.nodes, pointer, params)
 			}
 		}
 	}
-	collect(result[0].nodes, "")
+	collect(result[0].nodes, "", rootParams)
 	for name, raw := range obj(document["subgraphs"]) {
 		fragment := obj(raw)
 		pointer := "/subgraphs/" + name
-		child := graphScope{pointer: pointer, nodes: obj(fragment["nodes"]), edges: arr(fragment["edges"]), entrypoints: strs(fragment["entrypoints"])}
+		params := stringSet(obj(fragment["params"]))
+		if len(params) == 0 {
+			params = cloneStringSet(rootParams)
+		}
+		child := graphScope{pointer: pointer, nodes: obj(fragment["nodes"]), edges: arr(fragment["edges"]), entrypoints: strs(fragment["entrypoints"]), paramNames: params}
 		result = append(result, child)
-		collect(child.nodes, pointer)
+		collect(child.nodes, pointer, params)
 	}
 	return result
 }
@@ -519,6 +529,12 @@ func validateExpression(text, pointer string, scope *graphScope, nodeID string, 
 			report.add("AG205", "error", "expressions must not reference secrets.*", pointer)
 			continue
 		}
+		if parts[0] == "params" {
+			if len(parts) >= 2 && !scope.paramNames[parts[1]] {
+				report.add("AG203", "error", fmt.Sprintf("undeclared param %q", parts[1]), pointer)
+			}
+			continue
+		}
 		if parts[0] == "nodes" && len(parts) >= 2 {
 			target := parts[1]
 			if _, ok := scope.nodes[target]; !ok {
@@ -537,6 +553,22 @@ func validateExpression(text, pointer string, scope *graphScope, nodeID string, 
 			}
 		}
 	}
+}
+
+func stringSet(values map[string]any) map[string]bool {
+	result := map[string]bool{}
+	for key := range values {
+		result[key] = true
+	}
+	return result
+}
+
+func cloneStringSet(values map[string]bool) map[string]bool {
+	result := map[string]bool{}
+	for key := range values {
+		result[key] = true
+	}
+	return result
 }
 
 func textPair(left, right string) string { return left + "\x00" + right }

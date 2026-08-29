@@ -10,7 +10,7 @@ public final class Ags {
   /** AGS specification version implemented by this library. */
   public static final String SPEC_VERSION = "1.0";
   /** Java support-library version. */
-  public static final String SUPPORT_VERSION = "1.0.3";
+  public static final String SUPPORT_VERSION = "1.0.4";
 
   private Ags() {}
 

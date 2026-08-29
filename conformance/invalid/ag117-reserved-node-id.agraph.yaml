@@ -1,0 +1,12 @@
+# EXPECT: AG117
+# self is reserved for the current-node expression namespace.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag117-reserved-node-id
+title: Reserved node id
+objective: Demonstrate namespace protection.
+entrypoints: [self]
+nodes:
+  self:
+    title: Reserved
+    description: Uses the reserved self identifier.

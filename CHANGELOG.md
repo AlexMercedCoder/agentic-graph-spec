@@ -16,6 +16,14 @@ The format of this file follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+## [1.0.4] — 2026-08-29
+
+- Aligned Python, TypeScript, Rust, and Java package metadata for a coordinated 1.0.4 release; the normative AGS maintenance baseline remains 1.0.1.
+- Expanded the portable invalid corpus from 7 to 20 diagnostics and made all five language suites discover fixtures from their `# EXPECT:` headers.
+- Fixed undeclared `params.*` validation parity in the Go, Rust, and Java implementations.
+- Added CI-verified, machine-readable historical conformance results for Loro, MagAgent, and Merced-AI, with explicit fixture-revision and self-certification boundaries.
+- Added a release checklist and internal security review for the coordinated support-library release.
+
 ## [1.0.3] — 2026-08-28
 
 - Added a Java 17 support library with strict YAML/JSON parsing, embedded schema and semantic
@@ -131,7 +139,9 @@ Initial draft standard. `ags_version: "1.0"`.
 - `docs/expressions.md`, `docs/harness-integration.md`, `docs/skill-authoring.md`,
   `docs/design-rationale.md`, `GLOSSARY.md`.
 
-[Unreleased]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.3...v1.0.4
+[1.0.3]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/AlexMercedCoder/agentic-graph-spec/releases/tag/v1.0.0

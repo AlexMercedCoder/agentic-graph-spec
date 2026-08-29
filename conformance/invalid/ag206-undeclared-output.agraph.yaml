@@ -1,0 +1,25 @@
+# EXPECT: AG206
+# Expressions may only read outputs declared by their source node.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag206-undeclared-output
+title: Undeclared output
+objective: Demonstrate output-reference validation.
+entrypoints: [produce]
+nodes:
+  produce:
+    title: Produce
+    description: Declares one output.
+    outputs:
+      present:
+        type: text
+        description: The only available output.
+  consume:
+    title: Consume
+    description: Reads an output that was not declared.
+    depends_on: [produce]
+    inputs:
+      value:
+        type: text
+        description: An invalid output reference.
+        from: nodes.produce.outputs.missing

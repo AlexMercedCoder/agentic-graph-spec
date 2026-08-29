@@ -1,0 +1,15 @@
+# EXPECT: AG142
+# An intelligence escalation target cannot be below the current tier.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag142-downward-escalation
+title: Downward escalation
+objective: Demonstrate intelligence escalation validation.
+entrypoints: [start]
+nodes:
+  start:
+    title: Start
+    description: Attempts to escalate downward.
+    intelligence:
+      tier: advanced
+      escalate_to: minimal

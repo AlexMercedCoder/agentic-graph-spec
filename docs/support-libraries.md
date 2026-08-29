@@ -5,6 +5,8 @@ TypeScript, Go, Rust, and Java. Every implementation parses and validates AGS
 1.0 documents, computes the same RFC 8785 graph identity, exposes deterministic
 planning helpers, and does not execute graph nodes.
 
+Repository sources are prepared as release candidate 1.0.4. Install examples below intentionally remain on the latest published package for their registry until the coordinated release completes. See the [1.0.4 release checklist](release-1.0.4.md) and [internal security review](security-review-1.0.4.md).
+
 | Language | Runtime | Package or module | Documentation |
 | --- | --- | --- | --- |
 | Python | 3.10+ | `agentic-graph-spec` | This guide and the root package `ags` |

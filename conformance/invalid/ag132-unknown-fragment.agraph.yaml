@@ -1,0 +1,16 @@
+# EXPECT: AG132
+# A subgraph use clause must name a declared fragment.
+ags_version: "1.0"
+kind: AgenticGraph
+id: conformance/ag132-unknown-fragment
+title: Unknown fragment
+objective: Demonstrate named-fragment validation.
+requires_conformance: 3
+entrypoints: [call]
+nodes:
+  call:
+    type: subgraph
+    title: Call
+    description: Refers to an absent fragment.
+    subgraph:
+      use: missing

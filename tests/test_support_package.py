@@ -30,6 +30,19 @@ def test_public_validator_api() -> None:
     assert not report.errors
 
 
+@pytest.mark.parametrize("path", sorted((ROOT / "conformance" / "invalid").glob("*.agraph.yaml")))
+def test_shared_invalid_corpus(path: Path) -> None:
+    header = path.read_text(encoding="utf-8").splitlines()[0]
+    assert header.startswith("# EXPECT: "), f"{path.name} has no EXPECT header"
+    expected = header.removeprefix("# EXPECT: ").strip()
+    report = validate_path(path)
+    assert any(f.code == expected and f.severity == "error" for f in report.findings), (
+        path.name,
+        expected,
+        report.findings,
+    )
+
+
 def test_yaml_uses_1_2_boolean_rules(tmp_path: Path) -> None:
     source = (ROOT / "examples" / "minimal.agraph.yaml").read_text(encoding="utf-8")
     source = source.replace("title: Minimal graph", "title: yes")
