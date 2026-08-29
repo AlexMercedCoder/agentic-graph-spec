@@ -16,6 +16,9 @@ The format of this file follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+- Added an opt-in Maven Central release profile with GPG signing and documented
+  maintainer commands for validating and deploying signed Java artifacts.
+
 ## [1.0.3] — 2026-08-28
 
 - Added a Java 17 support library with strict YAML/JSON parsing, embedded schema and semantic

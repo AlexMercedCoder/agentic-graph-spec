@@ -21,6 +21,7 @@
   <developers>
     <developer>
       <name>Alex Merced</name>
+      <email>coder@alexmerced.com</email>
       <url>https://github.com/AlexMercedCoder</url>
     </developer>
   </developers>
@@ -28,7 +29,7 @@
     <connection>scm:git:https://github.com/AlexMercedCoder/agentic-graph-spec.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/AlexMercedCoder/agentic-graph-spec.git</developerConnection>
     <url>https://github.com/AlexMercedCoder/agentic-graph-spec</url>
-    <tag>HEAD</tag>
+    <tag>v1.0.3</tag>
   </scm>
 
   <properties>
@@ -128,4 +129,40 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>3.2.8</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals><goal>sign</goal></goals>
+              </execution>
+            </executions>
+            <configuration>
+              <bestPractices>true</bestPractices>
+              <keyname>2B439B66039FBC935D9DDFA3F6335E4C4C5755B2</keyname>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.sonatype.central</groupId>
+            <artifactId>central-publishing-maven-plugin</artifactId>
+            <version>0.9.0</version>
+            <extensions>true</extensions>
+            <configuration>
+              <publishingServerId>central</publishingServerId>
+              <autoPublish>false</autoPublish>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

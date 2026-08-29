@@ -28,3 +28,8 @@ Build and run the bundled executable JAR:
 JAVA_HOME=/path/to/jdk-17 mvn verify
 java -jar target/agentic-graph-spec-1.0.3-cli.jar --strict ../examples/minimal.agraph.yaml
 ```
+
+Maintainers can produce the complete Maven Central artifact set and GPG
+signatures with `mvn -Prelease clean verify`. Publishing additionally requires
+a Central Portal user token under server ID `central` in `~/.m2/settings.xml`;
+use `mvn -Prelease clean deploy` to upload a manually reviewed deployment.
