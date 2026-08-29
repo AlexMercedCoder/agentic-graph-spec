@@ -2,7 +2,7 @@
 
 **An open, implementation-neutral format for decomposing a project into a graph of agentic loops.**
 
-Spec version `1.0` · normative maintenance `1.0.1` · support-library release candidate `1.0.4` · [SPEC.md](SPEC.md) · [JSON Schema](schema/agentic-graph-1.0.schema.json) · [Examples](examples/) · [Support libraries](docs/support-libraries.md) · Apache-2.0
+Spec version `1.0` · normative maintenance `1.0.1` · support-library release `1.0.4` · [SPEC.md](SPEC.md) · [JSON Schema](schema/agentic-graph-1.0.schema.json) · [Examples](examples/) · [Support libraries](docs/support-libraries.md) · Apache-2.0
 
 Release preparation: [1.0.4 checklist](docs/release-1.0.4.md) · [internal security review](docs/security-review-1.0.4.md)
 
@@ -150,8 +150,8 @@ See [`typescript/`](typescript/) for its API and conformance tests.
 Go 1.26 or newer can use the root Go module:
 
 ```bash
-go get github.com/AlexMercedCoder/agentic-graph-spec@v1.0.3
-go run github.com/AlexMercedCoder/agentic-graph-spec/cmd/ags-validate@v1.0.3 path/to/graph.agraph.yaml
+go get github.com/AlexMercedCoder/agentic-graph-spec@v1.0.4
+go run github.com/AlexMercedCoder/agentic-graph-spec/cmd/ags-validate@v1.0.4 path/to/graph.agraph.yaml
 ```
 
 The `ags` package exposes parsing, validation, RFC 8785 identity, effective-edge and
@@ -160,8 +160,8 @@ topological-order helpers, and the deterministic Level 0 planner.
 The Rust crate provides the same Level 0 support surface with an MSRV of Rust 1.85:
 
 ```bash
-cargo add agentic-graph-spec@1.0.3
-cargo install agentic-graph-spec --version 1.0.3
+cargo add agentic-graph-spec@1.0.4
+cargo install agentic-graph-spec --version 1.0.4
 ags-validate path/to/graph.agraph.yaml
 ```
 
@@ -171,7 +171,7 @@ Java 17 users can use the Maven support library and executable validator JAR:
 <dependency>
   <groupId>io.github.alexmercedcoder</groupId>
   <artifactId>agentic-graph-spec</artifactId>
-  <version>1.0.3</version>
+  <version>1.0.4</version>
 </dependency>
 ```
 

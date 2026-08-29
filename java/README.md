@@ -6,13 +6,13 @@ parsing, embedded schema and semantic validation, AGX parsing, RFC 8785 graph
 identities, effective edges, deterministic topological ordering and planning,
 and a validator CLI. It validates and plans graphs; it does not execute them.
 
-Version 1.0.3 is available from [Maven Central](https://central.sonatype.com/artifact/io.github.alexmercedcoder/agentic-graph-spec/1.0.3).
+Version 1.0.4 is available from [Maven Central](https://central.sonatype.com/artifact/io.github.alexmercedcoder/agentic-graph-spec/1.0.4).
 
 ```xml
 <dependency>
   <groupId>io.github.alexmercedcoder</groupId>
   <artifactId>agentic-graph-spec</artifactId>
-  <version>1.0.3</version>
+  <version>1.0.4</version>
 </dependency>
 ```
 
@@ -28,7 +28,7 @@ Build and run the bundled executable JAR:
 
 ```console
 JAVA_HOME=/path/to/jdk-17 mvn verify
-java -jar target/agentic-graph-spec-1.0.3-cli.jar --strict ../examples/minimal.agraph.yaml
+java -jar target/agentic-graph-spec-1.0.4-cli.jar --strict ../examples/minimal.agraph.yaml
 ```
 
 Maintainers can produce the complete Maven Central artifact set and GPG

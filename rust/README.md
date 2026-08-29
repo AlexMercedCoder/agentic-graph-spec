@@ -25,7 +25,7 @@ println!("{:?}", plan_graph(&graph)?.order);
 ```
 
 ```console
-cargo install agentic-graph-spec --version 1.0.3
+cargo install agentic-graph-spec --version 1.0.4
 ags-validate --strict graph.agraph.yaml
 ```
 

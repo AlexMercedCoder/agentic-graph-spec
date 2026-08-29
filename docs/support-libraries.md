@@ -5,7 +5,7 @@ TypeScript, Go, Rust, and Java. Every implementation parses and validates AGS
 1.0 documents, computes the same RFC 8785 graph identity, exposes deterministic
 planning helpers, and does not execute graph nodes.
 
-Repository sources are prepared as release candidate 1.0.4. Install examples below intentionally remain on the latest published package for their registry until the coordinated release completes. See the [1.0.4 release checklist](release-1.0.4.md) and [internal security review](security-review-1.0.4.md).
+Support-library release 1.0.4 is coordinated across all five languages. See the [release checklist](release-1.0.4.md) and [internal security review](security-review-1.0.4.md).
 
 | Language | Runtime | Package or module | Documentation |
 | --- | --- | --- | --- |
@@ -45,7 +45,7 @@ and deterministic planning. See its [language README](../typescript/README.md).
 ## Go
 
 ```console
-go get github.com/AlexMercedCoder/agentic-graph-spec@v1.0.3
+go get github.com/AlexMercedCoder/agentic-graph-spec@v1.0.4
 ```
 
 ```go
@@ -61,8 +61,8 @@ The validator CLI is available from `cmd/ags-validate`.
 ## Rust
 
 ```console
-cargo add agentic-graph-spec@1.0.3
-cargo install agentic-graph-spec --version 1.0.3
+cargo add agentic-graph-spec@1.0.4
+cargo install agentic-graph-spec --version 1.0.4
 ags-validate --strict graph.agraph.yaml
 ```
 
@@ -74,11 +74,11 @@ See the [Rust README](../rust/README.md) for the native API and MSRV policy.
 <dependency>
   <groupId>io.github.alexmercedcoder</groupId>
   <artifactId>agentic-graph-spec</artifactId>
-  <version>1.0.3</version>
+  <version>1.0.4</version>
 </dependency>
 ```
 
-Version 1.0.3 is published on [Maven Central](https://central.sonatype.com/artifact/io.github.alexmercedcoder/agentic-graph-spec/1.0.3).
+Version 1.0.4 is published on [Maven Central](https://central.sonatype.com/artifact/io.github.alexmercedcoder/agentic-graph-spec/1.0.4).
 The Java source builds a normal library JAR, source and Javadoc JARs, and an
 executable `-cli.jar`. See the [Java README](../java/README.md).
 
