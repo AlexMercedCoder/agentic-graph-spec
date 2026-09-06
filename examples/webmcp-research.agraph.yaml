@@ -1,0 +1,49 @@
+ags_version: "1.0"
+kind: AgenticGraph
+id: examples/webmcp-research
+title: Research through a browser-native site tool
+requires_conformance: 1
+
+objective: Use an approved WebMCP source to produce a cited research note.
+entrypoints: [research]
+
+nodes:
+  research:
+    type: task
+    title: Gather and synthesize the source
+    description: Inspect the current page's WebMCP tools, use the relevant read-only tools, and write a cited summary.
+    outputs:
+      report:
+        type: file
+        description: Cited Markdown research note.
+        path_hint: research.md
+    intelligence:
+      tier: standard
+    requirements:
+      tools: [webmcp, file_write]
+      permissions: ["net:fetch:*", "fs:write:research.md"]
+      network: restricted
+      workspace: read_write
+    constraints:
+      max_agent_steps: 15
+      max_wall_clock_seconds: 600
+    estimate: { effort: s, cost_usd: 0.25 }
+    failure:
+      retry:
+        max_attempts: 2
+        retry_on: [transient]
+      on_exhausted: fail
+    success:
+      summary: The research note exists and identifies its browser source.
+      criteria:
+        - id: report_written
+          kind: file_exists
+          description: research.md exists.
+          path: research.md
+          min_bytes: 300
+
+outputs:
+  report:
+    type: file
+    description: Completed cited research note.
+    from: nodes.research.outputs.report

@@ -16,6 +16,11 @@ The format of this file follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+- Added non-normative WebMCP graph guidance for capability declarations, registry revisions,
+  runtime approvals, redacted records, stale registries, and resumable failure handling.
+- Added a valid research-to-report example that uses portable logical WebMCP capabilities rather
+  than site-specific generated tool names.
+
 ## [1.0.4] — 2026-08-29
 
 - Aligned Python, TypeScript, Rust, and Java package metadata for a coordinated 1.0.4 release; the normative AGS maintenance baseline remains 1.0.1.
