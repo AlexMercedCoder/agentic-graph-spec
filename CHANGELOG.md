@@ -20,6 +20,8 @@ The format of this file follows [Keep a Changelog](https://keepachangelog.com/en
   runtime approvals, redacted records, stale registries, and resumable failure handling.
 - Added a valid research-to-report example that uses portable logical WebMCP capabilities rather
   than site-specific generated tool names.
+- Corrected the README's Merced-AI listing, which said it published no AGS conformance level,
+  to match its self-declared Level 0 result in `conformance/results/merced-ai-0.3.0.json`.
 
 ## [1.0.4] — 2026-08-29
 

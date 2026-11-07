@@ -269,7 +269,7 @@ one MINOR release before removal.
 
 - [Loro](https://github.com/alexmerced-oss/loro) implements graph validation, planning, execution, run records, gates, loops, maps, routing and resumption.
 - [MagAgent](https://github.com/AlexMercedCoder/MagAgent) implements graph authoring, validation, scheduling, criteria, composition and run records.
-- [Merced-AI](https://github.com/AlexMercedCoder/merced-ai) is tracked as an integration candidate and does not currently publish an AGS conformance level.
+- [Merced-AI](https://github.com/AlexMercedCoder/merced-ai) is a deterministic reader and planner that self-declares Level 0 ([result](conformance/results/merced-ai-0.3.0.json)); it deliberately does not execute graphs.
 
 Implementation listings are evidence records, not endorsements. See [docs/implementation-report.md](docs/implementation-report.md); a conformance claim must identify the exact AGS maintenance release and fixture revision it passed.
 
