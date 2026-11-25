@@ -6,8 +6,8 @@ Claim a row by entering your name or task ID and setting the status to **In prog
 
 | ID | Priority | Status | Owner | Fix and verification |
 | --- | --- | --- | --- | --- |
-| AGS-01 | P1 | Open | — | — |
-| AGS-02 | P2 | Open | — | — |
+| AGS-01 | P1 | Done | — | `22cee59`. CLI and SDK reject null JSON and empty YAML. Tests passed. |
+| AGS-02 | P2 | Done | — | `22cee59`. CLI rejects missing files, invalid UTF-8 and empty batches. 29 Python tests passed across AGS. |
 
 ### AGS-01 · Reject JSON null and empty YAML as graph roots
 
