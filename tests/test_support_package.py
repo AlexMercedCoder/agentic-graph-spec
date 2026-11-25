@@ -80,3 +80,20 @@ def test_every_closed_schema_object_accepts_extensions() -> None:
 
         walk(schema)
         assert missing == []
+
+
+def test_cli_and_library_reject_missing_or_empty_graphs(tmp_path, capsys):
+    from ags import reference_validator, validate_path
+
+    validator = reference_validator()
+    for filename, payload in (("null.json", "null"), ("empty.yaml", ""), ("invalid.json", b"\xff")):
+        path = tmp_path / filename
+        path.write_bytes(payload.encode() if isinstance(payload, str) else payload)
+        assert validate_path(path).errors
+        assert validator.main([str(path)]) == 1
+    missing = tmp_path / "missing.yaml"
+    assert validator.main([str(missing)]) == 1
+    empty = tmp_path / "directory"
+    empty.mkdir()
+    assert validator.main([str(empty)]) != 0
+    assert "no graph documents found" in capsys.readouterr().err
