@@ -370,14 +370,18 @@ if yaml is not None:
 
 
 def load_document(path: Path, report: Report) -> Any | None:
-    text = path.read_text(encoding="utf-8")
     try:
+        text = path.read_text(encoding="utf-8")
         if path.suffix in (".yaml", ".yml"):
             if yaml is None:
                 report.add("AG001", "error", "PyYAML is not installed; cannot read YAML.")
                 return None
-            return yaml.load(text, Loader=_NoDuplicateLoader)
-        return json.loads(text)
+            document = yaml.load(text, Loader=_NoDuplicateLoader)
+        else:
+            document = json.loads(text)
+        if document is None:
+            report.add("AG001", "error", "document root must be an object")
+        return document
     except Exception as exc:  # noqa: BLE001 - any parse failure is a document error
         message = str(exc).replace("\n", " ")
         code = "AG005" if "duplicate key" in message else "AG001"
@@ -1162,7 +1166,12 @@ def main(argv: list[str] | None = None) -> int:
     total_warnings = 0
     reports: list[Report] = []
 
-    for path in expand(args.paths):
+    paths = expand(args.paths)
+    if not paths:
+        print("no graph documents found", file=sys.stderr)
+        return 1
+
+    for path in paths:
         report = Report(path)
         document = load_document(path, report)
         if document is not None:

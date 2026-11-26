@@ -294,3 +294,7 @@ available under [CC BY 4.0](LICENSE-CC-BY-4.0), so it can be quoted and adapted 
 specifications and documentation with attribution. Apache-2.0 was chosen for the repository as a
 whole because it carries an explicit patent grant, which matters for a format people are expected to
 implement.
+
+## Maintenance
+
+[Maintenance findings, acceptance checks and completion log](docs/maintenance.md).
