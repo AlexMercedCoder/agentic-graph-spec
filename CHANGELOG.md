@@ -16,6 +16,11 @@ The format of this file follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-11-26
+
+- Reject missing input, empty graph batches, and null documents in the Python validator.
+- Refresh the TypeScript dependency lockfile so the production audit passes.
+
 - Added non-normative WebMCP graph guidance for capability declarations, registry revisions,
   runtime approvals, redacted records, stale registries, and resumable failure handling.
 - Added a valid research-to-report example that uses portable logical WebMCP capabilities rather
@@ -146,7 +151,8 @@ Initial draft standard. `ags_version: "1.0"`.
 - `docs/expressions.md`, `docs/harness-integration.md`, `docs/skill-authoring.md`,
   `docs/design-rationale.md`, `GLOSSARY.md`.
 
-[Unreleased]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.5...HEAD
+[1.0.5]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/AlexMercedCoder/agentic-graph-spec/compare/v1.0.1...v1.0.2
